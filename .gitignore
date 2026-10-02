@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Database lokal aplikasi
+data/
+
+# Catatan pengembang
+STRUKTUR.md

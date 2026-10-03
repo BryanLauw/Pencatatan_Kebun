@@ -259,6 +259,90 @@ class TestSkema(unittest.TestCase):
         self.conn.execute(
             "UPDATE periode_panen SET nama_periode = 'Baru' WHERE id_periode = 'r1'")
 
+    # ---- periode_panen: tanggal_selesai kosong (periode masih berjalan) ----
+
+    def selesai(self, id_periode: str):
+        return self.conn.execute(
+            "SELECT tanggal_selesai FROM periode_panen WHERE id_periode = ?",
+            (id_periode,)).fetchone()[0]
+
+    def jumlah_periode_terbuka(self) -> int:
+        return self.conn.execute(
+            "SELECT COUNT(*) FROM periode_panen WHERE tanggal_selesai IS NULL").fetchone()[0]
+
+    def test_periode_boleh_belum_selesai(self):
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        self.assertIsNone(self.selesai("r1"))
+
+    def test_periode_baru_menutup_periode_terbuka_otomatis(self):
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        tambah_periode(self.conn, "r2", "2026-06-01", "2026-08-31")
+        self.assertEqual(self.selesai("r1"), "2026-05-31")
+        self.assertEqual(self.selesai("r2"), "2026-08-31")
+
+    def test_periode_terbuka_baru_menutup_periode_terbuka_lama(self):
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        tambah_periode(self.conn, "r2", "2026-06-01", None)
+        self.assertEqual(self.selesai("r1"), "2026-05-31")
+        self.assertIsNone(self.selesai("r2"))
+        self.assertEqual(self.jumlah_periode_terbuka(), 1)
+
+    def test_hanya_satu_periode_terbuka_setelah_beberapa_kali_tambah(self):
+        for i, mulai in enumerate(("2026-01-01", "2026-04-01", "2026-07-01", "2026-10-01")):
+            tambah_periode(self.conn, f"r{i}", mulai, None)
+        self.assertEqual(self.jumlah_periode_terbuka(), 1)
+        self.assertEqual(self.selesai("r0"), "2026-03-31")
+        self.assertEqual(self.selesai("r1"), "2026-06-30")
+        self.assertEqual(self.selesai("r2"), "2026-09-30")
+
+    def test_periode_lama_sebelum_periode_terbuka_diterima(self):
+        tambah_periode(self.conn, "r1", "2026-06-01", None)
+        tambah_periode(self.conn, "r2", "2025-01-01", "2025-12-31")
+        self.assertIsNone(self.selesai("r1"))
+        self.assertEqual(self.selesai("r2"), "2025-12-31")
+
+    def test_periode_lama_yang_menyentuh_awal_periode_terbuka_ditolak(self):
+        tambah_periode(self.conn, "r1", "2026-06-01", None)
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_periode(self.conn, "r2", "2025-01-01", "2026-06-01")
+        self.assertIsNone(self.selesai("r1"))
+
+    def test_periode_mulai_sama_dengan_periode_terbuka_ditolak(self):
+        tambah_periode(self.conn, "r1", "2026-06-01", None)
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_periode(self.conn, "r2", "2026-06-01", "2026-08-31")
+        self.assertIsNone(self.selesai("r1"))
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) FROM periode_panen").fetchone()[0], 1)
+
+    def test_periode_terbuka_bisa_ditutup_lewat_update(self):
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        self.conn.execute(
+            "UPDATE periode_panen SET tanggal_selesai = '2026-12-31' WHERE id_periode = 'r1'")
+        self.assertEqual(self.selesai("r1"), "2026-12-31")
+        self.assertEqual(self.jumlah_periode_terbuka(), 0)
+
+    def test_periode_tertutup_tidak_bisa_dibuka_kembali_jika_bertumpuk(self):
+        tambah_periode(self.conn, "r1", "2026-01-01", "2026-02-28")
+        tambah_periode(self.conn, "r2", "2026-06-01", "2026-08-31")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute(
+                "UPDATE periode_panen SET tanggal_selesai = NULL WHERE id_periode = 'r1'")
+        self.assertEqual(self.selesai("r1"), "2026-02-28")
+
+    def test_periode_terakhir_bisa_dibuka_kembali(self):
+        tambah_periode(self.conn, "r1", "2026-01-01", "2026-02-28")
+        self.conn.execute(
+            "UPDATE periode_panen SET tanggal_selesai = NULL WHERE id_periode = 'r1'")
+        self.assertIsNone(self.selesai("r1"))
+
+    def test_periode_terbuka_menolak_tanggal_mulai_dipindah_ke_periode_lain(self):
+        tambah_periode(self.conn, "r1", "2026-01-01", "2026-02-28")
+        tambah_periode(self.conn, "r2", "2026-06-01", None)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute(
+                "UPDATE periode_panen SET tanggal_mulai = '2026-02-01' WHERE id_periode = 'r2'")
+
 
 if __name__ == "__main__":
     unittest.main()

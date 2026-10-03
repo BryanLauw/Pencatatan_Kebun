@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS periode_panen (
     id_periode TEXT NOT NULL PRIMARY KEY,
     nama_periode VARCHAR(100) NOT NULL,
     tanggal_mulai DATE NOT NULL,
-    tanggal_selesai DATE NOT NULL,
+    tanggal_selesai DATE,
     deskripsi TEXT,
 
     CHECK (length(trim(nama_periode)) > 0),
@@ -73,8 +73,8 @@ CREATE TRIGGER IF NOT EXISTS periode_panen_tumpang_tindih_insert
 BEFORE INSERT ON periode_panen
 WHEN EXISTS (
     SELECT 1 FROM periode_panen
-    WHERE NEW.tanggal_mulai <= tanggal_selesai
-      AND NEW.tanggal_selesai >= tanggal_mulai
+    WHERE NEW.tanggal_mulai <= COALESCE(tanggal_selesai, '9999-12-31')
+      AND COALESCE(NEW.tanggal_selesai, '9999-12-31') >= tanggal_mulai
 )
 BEGIN
     SELECT RAISE(ABORT, 'Periode panen tumpang tindih dengan periode lain');
@@ -85,9 +85,21 @@ BEFORE UPDATE OF tanggal_mulai, tanggal_selesai ON periode_panen
 WHEN EXISTS (
     SELECT 1 FROM periode_panen
     WHERE id_periode <> NEW.id_periode
-      AND NEW.tanggal_mulai <= tanggal_selesai
-      AND NEW.tanggal_selesai >= tanggal_mulai
+      AND NEW.tanggal_mulai <= COALESCE(tanggal_selesai, '9999-12-31')
+      AND COALESCE(NEW.tanggal_selesai, '9999-12-31') >= tanggal_mulai
 )
 BEGIN
     SELECT RAISE(ABORT, 'Periode panen tumpang tindih dengan periode lain');
+END;
+
+CREATE TRIGGER IF NOT EXISTS tutup_periode_panen
+BEFORE INSERT ON periode_panen
+WHEN EXISTS (
+    SELECT 1 FROM periode_panen
+    WHERE tanggal_selesai IS NULL AND tanggal_mulai < NEW.tanggal_mulai
+)
+BEGIN
+    UPDATE periode_panen
+    SET tanggal_selesai = date(NEW.tanggal_mulai, '-1 day')
+    WHERE tanggal_selesai IS NULL AND tanggal_mulai < NEW.tanggal_mulai;
 END;

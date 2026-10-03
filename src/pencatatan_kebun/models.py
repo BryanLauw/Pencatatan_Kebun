@@ -137,7 +137,7 @@ class Buah:
 
 
 class PeriodePanen:
-    def __init__(self, nama: str, tanggal_mulai: str, tanggal_selesai: str,
+    def __init__(self, nama: str, tanggal_mulai: str, tanggal_selesai: Optional[str],
                  deskripsi: str = "", id_periode: Optional[str] = None):
         self.id_periode = id_periode or str(uuid.uuid4())
         self.nama = nama
@@ -160,7 +160,7 @@ class PeriodePanen:
     def get_tanggal_mulai(self):
         return self.tanggal_mulai
 
-    def set_tanggal_selesai(self, tanggal_selesai: str):
+    def set_tanggal_selesai(self, tanggal_selesai: Optional[str]):
         self.tanggal_selesai = tanggal_selesai
 
     def get_tanggal_selesai(self):

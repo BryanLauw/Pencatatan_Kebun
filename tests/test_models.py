@@ -116,6 +116,14 @@ class TestModels(unittest.TestCase):
         self.assertIs(buah.get_keterangan(), self.busuk)
         self.assertEqual(buah.get_tanggal_panen(), "2026-02-01")
 
+    def test_periode_panen_belum_selesai(self):
+        p = PeriodePanen("Raya 2026", "2026-01-01", None)
+        self.assertIsNone(p.get_tanggal_selesai())
+        p.set_tanggal_selesai("2026-03-01")
+        self.assertEqual(p.get_tanggal_selesai(), "2026-03-01")
+        p.set_tanggal_selesai(None)
+        self.assertIsNone(p.get_tanggal_selesai())
+
     def test_periode_panen(self):
         p = PeriodePanen("Raya 2026", "2026-01-01", "2026-03-01")
         self.assertEqual(p.get_nama(), "Raya 2026")

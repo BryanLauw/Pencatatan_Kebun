@@ -55,9 +55,9 @@ class Varietas:
 
 
 class Pohon:
-    def __init__(self, varietas: Varietas, nomor_pohon: int, id_pohon: Optional[str] = None):
+    def __init__(self, jenis: JenisTanaman, nomor_pohon: int, id_pohon: Optional[str] = None):
         self.id_pohon = id_pohon or str(uuid.uuid4())
-        self.varietas = varietas
+        self.jenis = jenis
         self.nomor_pohon = nomor_pohon
 
     def get_id_pohon(self):
@@ -69,11 +69,11 @@ class Pohon:
     def get_nomor_pohon(self):
         return self.nomor_pohon
 
-    def set_varietas(self, varietas: Varietas):
-        self.varietas = varietas
+    def set_jenis(self, jenis: JenisTanaman):
+        self.jenis = jenis
 
-    def get_varietas(self):
-        return self.varietas
+    def get_jenis(self):
+        return self.jenis
 
 
 class KeteranganBuah:
@@ -100,10 +100,11 @@ class KeteranganBuah:
 
 
 class Buah:
-    def __init__(self, pohon: Pohon, bobot: float, keterangan: KeteranganBuah, tanggal_panen: str,
-                 id_buah: Optional[str] = None):
+    def __init__(self, pohon: Pohon, varietas: Varietas, bobot: float, keterangan: KeteranganBuah,
+                 tanggal_panen: str, id_buah: Optional[str] = None):
         self.id_buah = id_buah or str(uuid.uuid4())
         self.pohon = pohon
+        self.varietas = varietas
         self.bobot = bobot
         self.keterangan = keterangan
         self.tanggal_panen = tanggal_panen
@@ -116,6 +117,12 @@ class Buah:
 
     def get_pohon(self):
         return self.pohon
+
+    def set_varietas(self, varietas: Varietas):
+        self.varietas = varietas
+
+    def get_varietas(self):
+        return self.varietas
 
     def set_bobot(self, bobot: float):
         self.bobot = bobot

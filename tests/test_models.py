@@ -1,6 +1,7 @@
 import sys
 import unittest
 import uuid
+from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -16,7 +17,7 @@ class TestModels(unittest.TestCase):
         self.busuk = KeteranganBuah("Busuk", "Tidak layak jual", id_keterangan="busuk")
 
     def semua_objek_baru(self):
-        pohon = Pohon(self.jenis, 1)
+        pohon = Pohon(1)
         return [
             (JenisTanaman("A"), "get_id_jenis"),
             (Varietas("A", self.jenis), "get_id_varietas"),
@@ -40,8 +41,8 @@ class TestModels(unittest.TestCase):
     def test_id_yang_diberikan_dipakai_apa_adanya(self):
         self.assertEqual(self.jenis.get_id_jenis(), "jenis-1")
         self.assertEqual(self.varietas.get_id_varietas(), "var-1")
-        self.assertEqual(Pohon(self.jenis, 1, id_pohon="pohon-1").get_id_pohon(), "pohon-1")
-        pohon = Pohon(self.jenis, 1)
+        self.assertEqual(Pohon(1, id_pohon="pohon-1").get_id_pohon(), "pohon-1")
+        pohon = Pohon(1)
         buah = Buah(pohon, self.varietas, 1.0, self.baik, "2026-01-15", id_buah="buah-1")
         self.assertEqual(buah.get_id_buah(), "buah-1")
         self.assertEqual(
@@ -79,15 +80,12 @@ class TestModels(unittest.TestCase):
         self.assertEqual(self.varietas.get_deskripsi(), "Harum")
 
     def test_pohon(self):
-        pohon = Pohon(self.jenis, 7)
+        pohon = Pohon(7)
         self.assertEqual(pohon.get_nomor_pohon(), 7)
-        self.assertIs(pohon.get_jenis(), self.jenis)
         pohon.set_nomor_pohon(8)
-        baru = JenisTanaman("Alpukat")
-        pohon.set_jenis(baru)
         self.assertEqual(pohon.get_nomor_pohon(), 8)
-        self.assertIs(pohon.get_jenis(), baru)
-        self.assertFalse(hasattr(pohon, "get_varietas"))
+        for atribut in ("get_jenis", "set_jenis", "get_varietas"):
+            self.assertFalse(hasattr(pohon, atribut), atribut)
 
     def test_keterangan_buah(self):
         self.assertEqual(self.baik.get_id_keterangan(), "baik")
@@ -101,14 +99,14 @@ class TestModels(unittest.TestCase):
         self.assertEqual(self.baik.get_deskripsi(), "Mulus")
 
     def test_buah(self):
-        pohon = Pohon(self.jenis, 7)
+        pohon = Pohon(7)
         buah = Buah(pohon, self.varietas, 1.5, self.baik, "2026-01-15")
         self.assertIs(buah.get_pohon(), pohon)
         self.assertIs(buah.get_varietas(), self.varietas)
         self.assertEqual(buah.get_bobot(), 1.5)
         self.assertIs(buah.get_keterangan(), self.baik)
         self.assertEqual(buah.get_tanggal_panen(), "2026-01-15")
-        lain = Pohon(self.jenis, 9)
+        lain = Pohon(9)
         d24 = Varietas("D24", self.jenis)
         buah.set_pohon(lain)
         buah.set_varietas(d24)
@@ -143,6 +141,15 @@ class TestModels(unittest.TestCase):
         self.assertEqual(p.get_tanggal_mulai(), "2026-04-01")
         self.assertEqual(p.get_tanggal_selesai(), "2026-05-01")
         self.assertEqual(p.get_deskripsi(), "Panen kedua")
+
+    def test_periode_panen_aktif(self):
+        hari_ini = date.today()
+        kemarin = (hari_ini - timedelta(days=1)).isoformat()
+        besok = (hari_ini + timedelta(days=1)).isoformat()
+        self.assertTrue(PeriodePanen("A", "2026-01-01", None).is_active())
+        self.assertTrue(PeriodePanen("A", "2000-01-01", besok).is_active())
+        self.assertTrue(PeriodePanen("A", "2000-01-01", hari_ini.isoformat()).is_active())
+        self.assertFalse(PeriodePanen("A", "2000-01-01", kemarin).is_active())
 
 
 if __name__ == "__main__":

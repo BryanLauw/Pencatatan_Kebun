@@ -20,7 +20,7 @@ def isi_induk(conn: sqlite3.Connection) -> None:
 
 def isi_pohon(conn: sqlite3.Connection) -> None:
     isi_induk(conn)
-    conn.execute("INSERT INTO pohon VALUES ('p1', 'j1', 1)")
+    conn.execute("INSERT INTO pohon VALUES ('p1', 1)")
     conn.execute("INSERT INTO keterangan_buah VALUES ('baik', 'Baik', NULL)")
 
 
@@ -47,6 +47,14 @@ class TestSkema(unittest.TestCase):
         return {r[1]: r[2] for r in self.conn.execute(f"PRAGMA table_info({tabel})")}
 
     # ---- struktur ----
+
+    def test_tidak_ada_trigger_buah(self):
+        nama = {r[0] for r in self.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger'")}
+        self.assertEqual(
+            nama,
+            {"periode_panen_tumpang_tindih_insert", "periode_panen_tumpang_tindih_update",
+             "tutup_periode_panen"})
 
     def test_semua_tabel_terbentuk(self):
         nama = {r[0] for r in self.conn.execute(
@@ -122,23 +130,17 @@ class TestSkema(unittest.TestCase):
     def test_pohon_bisa_ditambahkan(self):
         isi_pohon(self.conn)
 
-    def test_pohon_menolak_jenis_yang_tidak_ada(self):
-        isi_induk(self.conn)
+    def test_nomor_pohon_wajib_diisi(self):
         with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute("INSERT INTO pohon VALUES ('p1', 'xx', 1)")
+            self.conn.execute("INSERT INTO pohon VALUES ('p1', NULL)")
 
-    def test_nomor_pohon_unik_per_jenis(self):
+    def test_nomor_pohon_unik(self):
         isi_pohon(self.conn)
         with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute("INSERT INTO pohon VALUES ('p2', 'j1', 1)")
+            self.conn.execute("INSERT INTO pohon VALUES ('p2', 1)")
 
-    def test_nomor_pohon_sama_boleh_di_jenis_lain(self):
-        isi_pohon(self.conn)
-        self.conn.execute("INSERT INTO jenis_tanaman VALUES ('j2', 'Alpukat', NULL)")
-        self.conn.execute("INSERT INTO pohon VALUES ('p2', 'j2', 1)")
-
-    def test_pohon_tidak_punya_kolom_varietas(self):
-        self.assertNotIn("id_varietas", self.kolom("pohon"))
+    def test_pohon_tidak_punya_kolom_jenis_dan_varietas(self):
+        self.assertEqual(set(self.kolom("pohon")), {"id_pohon", "nomor_pohon"})
 
     # ---- keterangan_buah ----
 
@@ -185,42 +187,17 @@ class TestSkema(unittest.TestCase):
             "SELECT COUNT(DISTINCT id_varietas) FROM buah WHERE id_pohon = 'p1'").fetchone()[0]
         self.assertEqual(jumlah, 2)
 
-    def test_buah_menolak_varietas_dari_jenis_lain(self):
+    def test_satu_pohon_boleh_berbuah_varietas_dari_jenis_berbeda(self):
         isi_pohon(self.conn)
         self.conn.execute("INSERT INTO jenis_tanaman VALUES ('j2', 'Alpukat', NULL)")
         self.conn.execute("INSERT INTO varietas VALUES ('v2', 'j2', 'Miki', NULL)")
-        with self.assertRaises(sqlite3.IntegrityError):
-            tambah_buah(self.conn, id_varietas="v2")
-        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM buah").fetchone()[0], 0)
+        tambah_buah(self.conn, "b1", id_varietas="v1")
+        tambah_buah(self.conn, "b2", id_varietas="v2")
 
-    def test_buah_menolak_ubah_varietas_ke_jenis_lain(self):
-        isi_pohon(self.conn)
-        self.conn.execute("INSERT INTO jenis_tanaman VALUES ('j2', 'Alpukat', NULL)")
-        self.conn.execute("INSERT INTO varietas VALUES ('v2', 'j2', 'Miki', NULL)")
-        tambah_buah(self.conn)
-        with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute("UPDATE buah SET id_varietas = 'v2' WHERE id_buah = 'b1'")
-
-    def test_buah_menolak_pindah_ke_pohon_jenis_lain(self):
-        isi_pohon(self.conn)
-        self.conn.execute("INSERT INTO jenis_tanaman VALUES ('j2', 'Alpukat', NULL)")
-        self.conn.execute("INSERT INTO pohon VALUES ('p2', 'j2', 1)")
-        tambah_buah(self.conn)
-        with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute("UPDATE buah SET id_pohon = 'p2' WHERE id_buah = 'b1'")
-
-    def test_jenis_varietas_dan_pohon_tidak_bisa_dipindah_jika_dipakai_buah(self):
+    def test_jenis_varietas_boleh_dipindah_walau_dipakai_buah(self):
         isi_pohon(self.conn)
         self.conn.execute("INSERT INTO jenis_tanaman VALUES ('j2', 'Alpukat', NULL)")
         tambah_buah(self.conn)
-        with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute("UPDATE varietas SET id_jenis = 'j2' WHERE id_varietas = 'v1'")
-        with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute("UPDATE pohon SET id_jenis = 'j2' WHERE id_pohon = 'p1'")
-
-    def test_jenis_varietas_boleh_dipindah_jika_belum_dipakai_buah(self):
-        isi_pohon(self.conn)
-        self.conn.execute("INSERT INTO jenis_tanaman VALUES ('j2', 'Alpukat', NULL)")
         self.conn.execute("UPDATE varietas SET id_jenis = 'j2' WHERE id_varietas = 'v1'")
 
     def test_buah_menolak_keterangan_yang_tidak_ada(self):
@@ -279,6 +256,15 @@ class TestSkema(unittest.TestCase):
             tambah_periode(self.conn, "r1", "01-01-2026", "01-03-2026")
         with self.assertRaises(sqlite3.IntegrityError):
             tambah_periode(self.conn, "r1", "2026-01-01", "2026-3-1")
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_periode(self.conn, "r1", "2026-02-30", "2026-03-31")
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_periode(self.conn, "r1", "2026-01-01", "2026-02-30")
+
+    def test_tanggal_kabisat_diterima(self):
+        isi_pohon(self.conn)
+        tambah_buah(self.conn, tanggal="2024-02-29")
+        tambah_periode(self.conn, "r1", "2024-02-29", "2024-03-31")
 
     def test_periode_nama_tidak_boleh_kosong(self):
         with self.assertRaises(sqlite3.IntegrityError):

@@ -24,11 +24,7 @@ CREATE TABLE IF NOT EXISTS varietas (
 
 CREATE TABLE IF NOT EXISTS pohon (
     id_pohon TEXT NOT NULL PRIMARY KEY,
-    id_jenis TEXT NOT NULL,
-    nomor_pohon INTEGER NOT NULL,
-
-    FOREIGN KEY (id_jenis) REFERENCES jenis_tanaman(id_jenis) ON DELETE RESTRICT,
-    UNIQUE (id_jenis, nomor_pohon)
+    nomor_pohon INTEGER NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS keterangan_buah (
@@ -52,42 +48,8 @@ CREATE TABLE IF NOT EXISTS buah (
     FOREIGN KEY (id_varietas) REFERENCES varietas(id_varietas) ON DELETE RESTRICT,
     FOREIGN KEY (id_keterangan) REFERENCES keterangan_buah(id_keterangan) ON DELETE RESTRICT,
     CHECK (bobot > 0),
-    CHECK (tanggal_panen IS date(tanggal_panen))
+    CHECK (tanggal_panen IS date(tanggal_panen, '+0 days'))
 );
-
--- Varietas buah harus milik jenis yang sama dengan jenis pohonnya (satu pohon
--- bisa berbuah beberapa varietas lewat stek). CHECK tidak bisa melihat tabel
--- lain, jadi dipakai trigger. Jika id tidak ada, foreign key yang menolak.
-CREATE TRIGGER IF NOT EXISTS buah_varietas_sesuai_jenis_insert
-BEFORE INSERT ON buah
-WHEN (SELECT id_jenis FROM pohon WHERE id_pohon = NEW.id_pohon)
-     IS NOT (SELECT id_jenis FROM varietas WHERE id_varietas = NEW.id_varietas)
-BEGIN
-    SELECT RAISE(ABORT, 'Varietas buah tidak sesuai dengan jenis pohon');
-END;
-
-CREATE TRIGGER IF NOT EXISTS buah_varietas_sesuai_jenis_update
-BEFORE UPDATE OF id_pohon, id_varietas ON buah
-WHEN (SELECT id_jenis FROM pohon WHERE id_pohon = NEW.id_pohon)
-     IS NOT (SELECT id_jenis FROM varietas WHERE id_varietas = NEW.id_varietas)
-BEGIN
-    SELECT RAISE(ABORT, 'Varietas buah tidak sesuai dengan jenis pohon');
-END;
-
--- Jenis pohon/varietas tidak boleh dipindah jika sudah ada buah yang memakainya.
-CREATE TRIGGER IF NOT EXISTS varietas_jenis_tidak_diubah_jika_dipakai
-BEFORE UPDATE OF id_jenis ON varietas
-WHEN EXISTS (SELECT 1 FROM buah WHERE id_varietas = OLD.id_varietas)
-BEGIN
-    SELECT RAISE(ABORT, 'Jenis varietas tidak bisa diubah karena sudah dipakai buah');
-END;
-
-CREATE TRIGGER IF NOT EXISTS pohon_jenis_tidak_diubah_jika_dipakai
-BEFORE UPDATE OF id_jenis ON pohon
-WHEN EXISTS (SELECT 1 FROM buah WHERE id_pohon = OLD.id_pohon)
-BEGIN
-    SELECT RAISE(ABORT, 'Jenis pohon tidak bisa diubah karena sudah dipakai buah');
-END;
 
 CREATE TABLE IF NOT EXISTS periode_panen (
     id_periode TEXT NOT NULL PRIMARY KEY,
@@ -97,8 +59,8 @@ CREATE TABLE IF NOT EXISTS periode_panen (
     deskripsi TEXT,
 
     CHECK (length(trim(nama_periode)) > 0),
-    CHECK (tanggal_mulai IS date(tanggal_mulai)),
-    CHECK (tanggal_selesai IS date(tanggal_selesai)),
+    CHECK (tanggal_mulai IS date(tanggal_mulai, '+0 days')),
+    CHECK (tanggal_selesai IS date(tanggal_selesai, '+0 days')),
     CHECK (tanggal_mulai < tanggal_selesai)
 );
 

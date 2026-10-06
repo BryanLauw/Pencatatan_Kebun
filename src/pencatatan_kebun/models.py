@@ -1,5 +1,6 @@
 import uuid
 from typing import Optional
+from datetime import datetime
 
 
 class JenisTanaman:
@@ -55,9 +56,8 @@ class Varietas:
 
 
 class Pohon:
-    def __init__(self, jenis: JenisTanaman, nomor_pohon: int, id_pohon: Optional[str] = None):
+    def __init__(self, nomor_pohon: int, id_pohon: Optional[str] = None):
         self.id_pohon = id_pohon or str(uuid.uuid4())
-        self.jenis = jenis
         self.nomor_pohon = nomor_pohon
 
     def get_id_pohon(self):
@@ -68,12 +68,6 @@ class Pohon:
 
     def get_nomor_pohon(self):
         return self.nomor_pohon
-
-    def set_jenis(self, jenis: JenisTanaman):
-        self.jenis = jenis
-
-    def get_jenis(self):
-        return self.jenis
 
 
 class KeteranganBuah:
@@ -178,3 +172,11 @@ class PeriodePanen:
 
     def get_deskripsi(self):
         return self.deskripsi
+
+    def is_active(self):
+        if self.tanggal_selesai is None:
+            return True
+        else:
+            today = datetime.now().date()
+            tanggal_selesai_date = datetime.strptime(self.tanggal_selesai, "%Y-%m-%d").date()
+            return today <= tanggal_selesai_date

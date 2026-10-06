@@ -8,12 +8,12 @@ class RepoJenisTanaman:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
-    def simpan(self, jenis_tanaman: JenisTanaman) -> None:
+    def create(self, jenis_tanaman: JenisTanaman) -> None:
         self.conn.execute(
             "INSERT INTO jenis_tanaman (id_jenis, nama_jenis, deskripsi) VALUES (?, ?, ?)",
             (jenis_tanaman.get_id_jenis(), jenis_tanaman.get_nama_jenis(), jenis_tanaman.get_deskripsi()))
 
-    def ambil(self, id_jenis: str) -> Optional[JenisTanaman]:
+    def read(self, id_jenis: str) -> Optional[JenisTanaman]:
         baris = self.conn.execute(
             "SELECT id_jenis, nama_jenis, deskripsi FROM jenis_tanaman WHERE id_jenis = ?",
             (id_jenis,)).fetchone()
@@ -26,7 +26,7 @@ class RepoJenisTanaman:
             id_jenis=baris["id_jenis"]
         )
 
-    def ambil_semua(self) -> list[JenisTanaman]:
+    def read_all(self) -> list[JenisTanaman]:
         baris_list = self.conn.execute(
             "SELECT id_jenis, nama_jenis, deskripsi FROM jenis_tanaman ORDER BY nama_jenis").fetchall()
         
@@ -39,7 +39,7 @@ class RepoJenisTanaman:
             for baris in baris_list
         ]
 
-    def ambil_berdasarkan_nama(self, nama_jenis: str) -> Optional[JenisTanaman]:
+    def read_by_name(self, nama_jenis: str) -> Optional[JenisTanaman]:
         baris = self.conn.execute(
             "SELECT id_jenis, nama_jenis, deskripsi FROM jenis_tanaman WHERE nama_jenis = ?",
             (nama_jenis,)).fetchone()
@@ -52,7 +52,7 @@ class RepoJenisTanaman:
             id_jenis=baris["id_jenis"]
         )
 
-    def ambil_berdasarkan_nama_banyak(self, nama_jenis: list[str]) -> list[JenisTanaman]:
+    def read_by_names(self, nama_jenis: list[str]) -> list[JenisTanaman]:
         baris_list = self.conn.execute(
             "SELECT id_jenis, nama_jenis, deskripsi FROM jenis_tanaman WHERE nama_jenis IN ({}) ORDER BY nama_jenis".format(",".join("?" * len(nama_jenis))),
             tuple(nama_jenis)).fetchall()
@@ -66,12 +66,12 @@ class RepoJenisTanaman:
             for baris in baris_list
         ]
 
-    def hapus(self, id_jenis: str) -> None:
+    def delete(self, id_jenis: str) -> None:
         self.conn.execute(
             "DELETE FROM jenis_tanaman WHERE id_jenis = ?",
             (id_jenis,))
 
-    def perbarui(self, jenis_tanaman: JenisTanaman) -> None:
+    def update(self, jenis_tanaman: JenisTanaman) -> None:
         self.conn.execute(
             "UPDATE jenis_tanaman SET nama_jenis = ?, deskripsi = ? WHERE id_jenis = ?",
             (jenis_tanaman.get_nama_jenis(), jenis_tanaman.get_deskripsi(), jenis_tanaman.get_id_jenis()))

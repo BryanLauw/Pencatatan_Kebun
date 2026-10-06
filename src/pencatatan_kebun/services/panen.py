@@ -35,22 +35,22 @@ class PanenService:
             raise PanenException("Tanggal panen tidak boleh di masa depan")
 
         # 2. cari objek terkait lewat repo
-        pohon = self.repo_pohon.ambil_berdasarkan_nomor(nomor_pohon)
+        pohon = self.repo_pohon.read_by_number(nomor_pohon)
         if pohon is None:
             raise PanenException(f"Pohon nomor {nomor_pohon} belum terdaftar")
-        jenis = self.repo_jenis.ambil_berdasarkan_nama(nama_jenis)
+        jenis = self.repo_jenis.read_by_name(nama_jenis)
         if jenis is None:
             raise PanenException(f"Jenis '{nama_jenis}' belum terdaftar")
-        varietas = self.repo_varietas.ambil_berdasarkan_nama(nama_varietas, jenis)
+        varietas = self.repo_varietas.read_by_name(nama_varietas, jenis)
         if varietas is None:
             raise PanenException(
                 f"Varietas '{nama_varietas}' belum terdaftar untuk {jenis.get_nama_jenis()}")
-        keterangan = self.repo_keterangan.ambil_berdasarkan_nama(nama_keterangan)
+        keterangan = self.repo_keterangan.read_by_name(nama_keterangan)
         if keterangan is None:
             raise PanenException(f"Keterangan '{nama_keterangan}' belum terdaftar")
 
         # 3. simpan dalam satu transaksi
         buah = Buah(pohon, varietas, bobot, keterangan, tanggal.isoformat())
         with self.conn:  # commit jika berhasil, rollback jika error
-            self.repo_buah.simpan(buah)
+            self.repo_buah.create(buah)
         return buah

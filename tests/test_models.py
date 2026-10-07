@@ -127,6 +127,11 @@ class TestModels(unittest.TestCase):
         p.set_tanggal_selesai(None)
         self.assertIsNone(p.get_tanggal_selesai())
 
+    def test_periode_panen_tanggal_selesai_bawaan_kosong(self):
+        p = PeriodePanen("Raya 2026", "2026-01-01")
+        self.assertIsNone(p.get_tanggal_selesai())
+        self.assertTrue(p.is_active())
+
     def test_periode_panen(self):
         p = PeriodePanen("Raya 2026", "2026-01-01", "2026-03-01")
         self.assertEqual(p.get_nama(), "Raya 2026")

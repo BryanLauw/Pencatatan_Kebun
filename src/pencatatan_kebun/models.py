@@ -203,7 +203,7 @@ class PeriodePanen:
             tidak punya setter.
     """
 
-    def __init__(self, nama: str, tanggal_mulai: str, tanggal_selesai: Optional[str],
+    def __init__(self, nama: str, tanggal_mulai: str, tanggal_selesai: Optional[str] = None,
                  deskripsi: str = "", id_periode: Optional[str] = None):
         self.id_periode = id_periode or str(uuid.uuid4())
         self.nama = nama

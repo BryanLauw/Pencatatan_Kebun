@@ -145,6 +145,34 @@ class RepoBuah:
             for baris in baris_list
         ]
 
+    def read_by_harvest_date_range(self, mulai: str, selesai: str) -> list[Buah]:
+        """Ambil buah yang dipanen di antara dua tanggal (inklusif).
+
+        Args:
+            mulai: Tanggal mulai format YYYY-MM-DD.
+            selesai: Tanggal selesai format YYYY-MM-DD.
+
+        Returns:
+            Daftar Buah, urut berdasarkan tanggal panen lalu nomor pohon.
+        """
+        baris_list = self.conn.execute(
+            "SELECT b.id_buah, b.id_pohon, b.id_varietas, b.tanggal_panen, b.id_keterangan, b.bobot FROM buah b "
+            "JOIN pohon p ON p.id_pohon = b.id_pohon "
+            "WHERE b.tanggal_panen BETWEEN ? AND ? ORDER BY b.tanggal_panen, p.nomor_pohon",
+            (mulai, selesai)).fetchall()
+
+        return [
+            Buah(
+                RepoPohon(self.conn).read(baris["id_pohon"]),
+                RepoVarietas(self.conn).read(baris["id_varietas"]),
+                baris["bobot"],
+                RepoKeteranganBuah(self.conn).read(baris["id_keterangan"]),
+                baris["tanggal_panen"],
+                id_buah=baris["id_buah"]
+            )
+            for baris in baris_list
+        ]
+
     def delete(self, id_buah: str) -> None:
         """Hapus satu catatan buah. Tidak error jika id tidak ada.
 

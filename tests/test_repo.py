@@ -352,6 +352,41 @@ class TestRepoLanjutan(DasarRepo):
         self.assertEqual(self.id_dari(hasil, "get_id_buah"),
                          {b1.get_id_buah(), b2.get_id_buah(), b4.get_id_buah()})
 
+    def test_read_by_harvest_date_range_batas_ikut(self):
+        self.simpan_induk()
+        sebelum = self.buah_baru(tanggal_panen="2026-01-09")
+        awal = self.buah_baru(tanggal_panen="2026-01-10")
+        tengah = self.buah_baru(tanggal_panen="2026-01-15")
+        akhir = self.buah_baru(tanggal_panen="2026-01-20")
+        sesudah = self.buah_baru(tanggal_panen="2026-01-21")
+        for buah in (sebelum, awal, tengah, akhir, sesudah):
+            self.repo_buah.create(buah)
+
+        hasil = self.repo_buah.read_by_harvest_date_range("2026-01-10", "2026-01-20")
+        self.assertEqual([b.get_id_buah() for b in hasil],
+                         [awal.get_id_buah(), tengah.get_id_buah(), akhir.get_id_buah()])
+        self.assertEqual(hasil[0].get_varietas().get_id_varietas(),
+                         self.varietas.get_id_varietas())
+
+    def test_read_by_harvest_date_range_urut_tanggal_lalu_nomor_pohon(self):
+        self.simpan_induk()
+        pohon_3 = Pohon(3)
+        self.repo_pohon.create(pohon_3)
+        b1 = self.buah_baru(pohon=self.pohon, tanggal_panen="2026-01-16")
+        b2 = self.buah_baru(pohon=self.pohon, tanggal_panen="2026-01-15")
+        b3 = self.buah_baru(pohon=pohon_3, tanggal_panen="2026-01-15")
+        for buah in (b1, b2, b3):
+            self.repo_buah.create(buah)
+
+        hasil = self.repo_buah.read_by_harvest_date_range("2026-01-01", "2026-01-31")
+        self.assertEqual([b.get_id_buah() for b in hasil],
+                         [b3.get_id_buah(), b2.get_id_buah(), b1.get_id_buah()])
+
+    def test_read_by_harvest_date_range_tanpa_buah(self):
+        self.simpan_induk()
+        self.repo_buah.create(self.buah_baru(tanggal_panen="2026-01-15"))
+        self.assertEqual(self.repo_buah.read_by_harvest_date_range("2026-02-01", "2026-02-28"), [])
+
     # ---- periode_panen: ambil_rentang ----
 
     def nama_periode_rentang(self, mulai, selesai):

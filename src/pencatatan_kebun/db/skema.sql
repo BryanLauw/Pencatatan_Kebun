@@ -90,6 +90,8 @@ WHEN EXISTS (
     SELECT 1 FROM periode_panen
     WHERE NEW.tanggal_mulai <= COALESCE(tanggal_selesai, '9999-12-31')
       AND COALESCE(NEW.tanggal_selesai, '9999-12-31') >= tanggal_mulai
+      -- periode aktif yang mulai lebih awal akan ditutup tutup_periode_panen
+      AND NOT (tanggal_selesai IS NULL AND tanggal_mulai < NEW.tanggal_mulai)
 )
 BEGIN
     SELECT RAISE(ABORT, 'Periode panen tumpang tindih dengan periode lain');
@@ -110,12 +112,11 @@ END;
 -- Membuka periode baru otomatis menutup periode aktif yang mulai lebih awal,
 -- sehari sebelum tanggal mulai periode baru.
 --
--- PENTING: trigger ini harus tetap dibuat SETELAH trigger tumpang tindih.
--- SQLite menjalankan trigger yang dibuat terakhir lebih dulu, jadi periode aktif
--- sudah ditutup saat pengecekan tumpang tindih berjalan. Jika urutannya dibalik,
--- periode aktif (selesai NULL) dianggap bertumpuk dan periode baru selalu ditolak.
--- Periode baru yang mulai pada atau sebelum tanggal mulai periode aktif tidak
--- menutupnya, sehingga tetap ditolak sebagai tumpang tindih.
+-- Trigger tumpang tindih saat insert tidak menghitung periode aktif tersebut,
+-- jadi hasilnya tidak bergantung pada urutan jalannya kedua trigger (urutan
+-- trigger tidak dijamin oleh SQLite). Periode baru yang mulai pada atau sebelum
+-- tanggal mulai periode aktif tidak menutupnya, sehingga tetap ditolak sebagai
+-- tumpang tindih.
 CREATE TRIGGER IF NOT EXISTS tutup_periode_panen
 BEFORE INSERT ON periode_panen
 WHEN EXISTS (

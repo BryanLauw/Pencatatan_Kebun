@@ -8,6 +8,17 @@ from pencatatan_kebun.repo.keterangan_buah import RepoKeteranganBuah
 
 
 class RepoBuah:
+    """Akses tabel buah (catatan hasil panen).
+
+    Objek Pohon, Varietas (beserta jenisnya), dan KeteranganBuah di setiap Buah
+    ikut dimuat lewat repo masing-masing.
+
+    Koneksi dikirim dari luar (dari buka_koneksi, atau ":memory:" di tes).
+    Repo tidak memanggil commit(): transaksi diurus service. Pelanggaran aturan
+    skema (unik, foreign key, CHECK, trigger) dibiarkan naik sebagai
+    sqlite3.IntegrityError untuk diterjemahkan service.
+    """
+
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
@@ -17,6 +28,7 @@ class RepoBuah:
             (buah.get_id_buah(), buah.get_pohon().get_id_pohon(), buah.get_varietas().get_id_varietas(), buah.get_tanggal_panen(), buah.get_keterangan().get_id_keterangan(), buah.get_bobot()))
 
     def read(self, id_buah: str) -> Optional[Buah]:
+        """Buah dengan id tersebut beserta objek relasinya, atau None jika tidak ada."""
         baris = self.conn.execute(
             "SELECT id_buah, id_pohon, id_varietas, tanggal_panen, id_keterangan, bobot FROM buah WHERE id_buah = ?",
             (id_buah,)).fetchone()
@@ -37,6 +49,7 @@ class RepoBuah:
         )
 
     def read_all(self) -> list[Buah]:
+        """Semua buah, urut berdasarkan tanggal panen lalu nomor pohon."""
         baris_list = self.conn.execute(
             "SELECT b.id_buah, b.id_pohon, b.id_varietas, b.tanggal_panen, b.id_keterangan, b.bobot FROM buah b "
             "JOIN pohon p ON p.id_pohon = b.id_pohon "
@@ -55,6 +68,7 @@ class RepoBuah:
         ]
 
     def read_by_harvest_date(self, tanggal_panen: str) -> list[Buah]:
+        """Buah yang dipanen pada satu tanggal (YYYY-MM-DD), urut berdasarkan nomor pohon."""
         baris_list = self.conn.execute(
             "SELECT b.id_buah, b.id_pohon, b.id_varietas, b.tanggal_panen, b.id_keterangan, b.bobot FROM buah b "
             "JOIN pohon p ON p.id_pohon = b.id_pohon "
@@ -74,6 +88,10 @@ class RepoBuah:
         ]
 
     def read_by_harvest_dates(self, tanggal_panen: list[str]) -> list[Buah]:
+        """Buah yang dipanen pada salah satu tanggal di daftar.
+
+        Urut berdasarkan tanggal panen lalu nomor pohon; daftar kosong menghasilkan [].
+        """
         baris_list = self.conn.execute(
             "SELECT b.id_buah, b.id_pohon, b.id_varietas, b.tanggal_panen, b.id_keterangan, b.bobot FROM buah b "
             "JOIN pohon p ON p.id_pohon = b.id_pohon "
@@ -93,11 +111,13 @@ class RepoBuah:
         ]
 
     def delete(self, id_buah: str) -> None:
+        """Hapus satu catatan buah. Tidak error jika id tidak ada."""
         self.conn.execute(
             "DELETE FROM buah WHERE id_buah = ?",
             (id_buah,))
 
     def update(self, buah: Buah) -> None:
+        """Simpan perubahan semua kolom buah. Tidak error jika id tidak ada."""
         self.conn.execute(
             "UPDATE buah SET id_pohon = ?, id_varietas = ?, tanggal_panen = ?, id_keterangan = ?, bobot = ? WHERE id_buah = ?",
             (buah.get_pohon().get_id_pohon(), buah.get_varietas().get_id_varietas(), buah.get_tanggal_panen(), buah.get_keterangan().get_id_keterangan(), buah.get_bobot(), buah.get_id_buah()))

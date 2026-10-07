@@ -4,6 +4,11 @@ from datetime import datetime
 
 
 class JenisTanaman:
+    """Jenis tanaman, mis. "Durian" atau "Mangga". Data master.
+
+    id_jenis dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    """
+
     def __init__(self, nama_jenis: str, deskripsi: str = "", id_jenis: Optional[str] = None):
         self.id_jenis = id_jenis or str(uuid.uuid4())
         self.nama_jenis = nama_jenis
@@ -26,6 +31,13 @@ class JenisTanaman:
 
 
 class Varietas:
+    """Varietas di dalam satu jenis tanaman, mis. "Musang King" untuk Durian. Data master.
+
+    Nama varietas hanya unik di dalam jenisnya.
+
+    id_varietas dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    """
+
     def __init__(self, nama_varietas: str, jenis: JenisTanaman, deskripsi: str = "",
                  id_varietas: Optional[str] = None):
         self.id_varietas = id_varietas or str(uuid.uuid4())
@@ -56,6 +68,14 @@ class Varietas:
 
 
 class Pohon:
+    """Satu pohon di kebun, dikenali dari nomornya. Data master.
+
+    Pohon tidak terhubung ke jenis tanaman: satu pohon boleh menghasilkan buah
+    dari varietas apa pun (mis. lewat stek).
+
+    id_pohon dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    """
+
     def __init__(self, nomor_pohon: int, id_pohon: Optional[str] = None):
         self.id_pohon = id_pohon or str(uuid.uuid4())
         self.nomor_pohon = nomor_pohon
@@ -71,6 +91,11 @@ class Pohon:
 
 
 class KeteranganBuah:
+    """Kondisi buah saat dipanen, mis. "Baik" atau "Busuk". Data master.
+
+    id_keterangan dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    """
+
     def __init__(self, nama_keterangan: str, deskripsi: str = "",
                  id_keterangan: Optional[str] = None):
         self.id_keterangan = id_keterangan or str(uuid.uuid4())
@@ -94,6 +119,14 @@ class KeteranganBuah:
 
 
 class Buah:
+    """Satu catatan buah hasil panen.
+
+    Jenis tanaman diketahui lewat varietas.get_jenis(). bobot dalam kg.
+    tanggal_panen berupa teks YYYY-MM-DD.
+
+    id_buah dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    """
+
     def __init__(self, pohon: Pohon, varietas: Varietas, bobot: float, keterangan: KeteranganBuah,
                  tanggal_panen: str, id_buah: Optional[str] = None):
         self.id_buah = id_buah or str(uuid.uuid4())
@@ -138,6 +171,14 @@ class Buah:
 
 
 class PeriodePanen:
+    """Satu periode panen, mis. "Raya 2026".
+
+    Tanggal berupa teks YYYY-MM-DD. tanggal_selesai None berarti periode masih
+    berjalan.
+
+    id_periode dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    """
+
     def __init__(self, nama: str, tanggal_mulai: str, tanggal_selesai: Optional[str],
                  deskripsi: str = "", id_periode: Optional[str] = None):
         self.id_periode = id_periode or str(uuid.uuid4())
@@ -174,6 +215,11 @@ class PeriodePanen:
         return self.deskripsi
 
     def is_active(self):
+        """True jika periode masih berjalan.
+
+        Periode aktif jika tanggal selesai kosong, atau hari ini belum melewati
+        tanggal selesai (hari tanggal selesai masih dihitung aktif).
+        """
         if self.tanggal_selesai is None:
             return True
         else:

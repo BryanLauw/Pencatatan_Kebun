@@ -4,7 +4,8 @@ from pathlib import Path
 NAMA_APLIKASI = "PencatatanKebun"
 NAMA_FILE_DB = "kebun.db"
 
-# Database disimpan YYYY-MM-DD; format ini hanya untuk tampilan di ui.
+# Format tanggal untuk tampilan di ui (DD-MM-YYYY). Di database dan model,
+# tanggal selalu disimpan sebagai teks YYYY-MM-DD.
 FORMAT_TANGGAL_TAMPIL = "%d-%m-%Y"
 
 
@@ -15,4 +16,5 @@ def folder_data() -> Path:
 
 
 def lokasi_db() -> Path:
+    """Path file database aplikasi, mis. ...\\AppData\\Roaming\\PencatatanKebun\\kebun.db."""
     return folder_data() / NAMA_FILE_DB

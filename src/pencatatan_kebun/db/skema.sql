@@ -1,6 +1,17 @@
 -- Semua id berupa TEXT (UUID) yang dibuat oleh aplikasi.
 -- Semua tanggal disimpan sebagai teks format YYYY-MM-DD (urutan teks = urutan waktu).
 -- Tampilan DD-MM-YYYY diatur di lapisan ui.
+--
+-- Tipe DATE hanya label: SQLite menyimpannya sebagai TEXT. CHECK tanggal memakai
+-- date(x, '+0 days') karena date(x) saja menerima tanggal yang tidak ada,
+-- mis. 2026-02-30; dengan modifier, tanggal itu bergeser menjadi 2026-03-02
+-- sehingga tidak sama dengan aslinya dan ditolak.
+--
+-- Nama dengan COLLATE NOCASE unik tanpa membedakan huruf besar/kecil
+-- ("Durian" dan "durian" dianggap sama).
+--
+-- ON DELETE RESTRICT: data master (jenis, varietas, pohon, keterangan) tidak
+-- bisa dihapus selama masih dipakai data lain.
 
 CREATE TABLE IF NOT EXISTS jenis_tanaman (
     id_jenis TEXT NOT NULL PRIMARY KEY,
@@ -11,6 +22,8 @@ CREATE TABLE IF NOT EXISTS jenis_tanaman (
     CHECK (length(trim(nama_jenis)) > 0)
 );
 
+-- Nama varietas hanya unik di dalam satu jenis (mis. "Lokal" boleh ada di
+-- Durian dan Mangga).
 CREATE TABLE IF NOT EXISTS varietas (
     id_varietas TEXT NOT NULL PRIMARY KEY,
     id_jenis TEXT NOT NULL,
@@ -22,6 +35,8 @@ CREATE TABLE IF NOT EXISTS varietas (
     CHECK (length(trim(nama_varietas)) > 0)
 );
 
+-- Pohon tidak terhubung ke jenis: satu pohon boleh menghasilkan buah dari
+-- varietas apa pun (mis. lewat stek). Jenis buah diketahui lewat varietasnya.
 CREATE TABLE IF NOT EXISTS pohon (
     id_pohon TEXT NOT NULL PRIMARY KEY,
     nomor_pohon INTEGER NOT NULL UNIQUE
@@ -36,6 +51,7 @@ CREATE TABLE IF NOT EXISTS keterangan_buah (
     CHECK (length(trim(nama_keterangan)) > 0)
 );
 
+-- Satu baris = satu buah hasil panen. bobot dalam kg.
 CREATE TABLE IF NOT EXISTS buah (
     id_buah TEXT NOT NULL PRIMARY KEY,
     id_pohon TEXT NOT NULL,
@@ -51,6 +67,7 @@ CREATE TABLE IF NOT EXISTS buah (
     CHECK (tanggal_panen IS date(tanggal_panen, '+0 days'))
 );
 
+-- tanggal_selesai NULL berarti periode masih berjalan (aktif).
 CREATE TABLE IF NOT EXISTS periode_panen (
     id_periode TEXT NOT NULL PRIMARY KEY,
     nama_periode VARCHAR(100) NOT NULL,
@@ -90,6 +107,15 @@ BEGIN
     SELECT RAISE(ABORT, 'Periode panen tumpang tindih dengan periode lain');
 END;
 
+-- Membuka periode baru otomatis menutup periode aktif yang mulai lebih awal,
+-- sehari sebelum tanggal mulai periode baru.
+--
+-- PENTING: trigger ini harus tetap dibuat SETELAH trigger tumpang tindih.
+-- SQLite menjalankan trigger yang dibuat terakhir lebih dulu, jadi periode aktif
+-- sudah ditutup saat pengecekan tumpang tindih berjalan. Jika urutannya dibalik,
+-- periode aktif (selesai NULL) dianggap bertumpuk dan periode baru selalu ditolak.
+-- Periode baru yang mulai pada atau sebelum tanggal mulai periode aktif tidak
+-- menutupnya, sehingga tetap ditolak sebagai tumpang tindih.
 CREATE TRIGGER IF NOT EXISTS tutup_periode_panen
 BEFORE INSERT ON periode_panen
 WHEN EXISTS (

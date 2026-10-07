@@ -7,19 +7,25 @@ class ServiceException(Exception):
     ui cukup menangkap exception ini dan menampilkan e.pesan. Exception lain
     (bukan turunan kelas ini) berarti bug dan pesannya tidak perlu ditampilkan.
 
-    Parameter:
-        pesan: kalimat untuk pengguna. Jika None, dipakai pesan_bawaan.
-        kolom: nama isian form yang bermasalah (mis. "bobot"), agar ui bisa
+    Args:
+        pesan: Kalimat untuk pengguna. Jika None, dipakai pesan_bawaan.
+        kolom: Nama isian form yang bermasalah (mis. "bobot"), agar ui bisa
             menyorotnya. None jika tidak terkait satu isian tertentu.
 
-    Atribut pesan dan kolom selalu tersedia di setiap turunan.
+    Attributes:
+        pesan_bawaan: Pesan yang dipakai jika pesan tidak diisi. Timpa di turunan.
+        pesan: Kalimat untuk pengguna. Selalu tersedia di setiap turunan.
+        kolom: Nama isian form yang bermasalah, atau None. Selalu tersedia di
+            setiap turunan.
 
-    Cara membuat turunan:
-        - pesannya selalu sama: cukup timpa pesan_bawaan.
-        - pesannya butuh data: tulis __init__ sendiri yang menyusun pesan, lalu
+    Note:
+        Cara membuat turunan:
+
+        - Pesannya selalu sama: cukup timpa pesan_bawaan.
+        - Pesannya butuh data: tulis __init__ sendiri yang menyusun pesan, lalu
           panggil super().__init__(pesan, kolom=...). Contoh: NamaKosongException
           menerima label lalu menyusun "<label> wajib diisi!".
-        - kelas pengelompok (mis. InputTidakValidException): jangan tulis __init__
+        - Kelas pengelompok (mis. InputTidakValidException): jangan tulis __init__
           dengan parameter berbeda, karena semua turunannya memanggil super().__init__
           dengan parameter pesan dan kolom.
     """
@@ -61,10 +67,10 @@ class TanggalTidakValidException(InputTidakValidException):
     """Tanggal salah format, tidak ada di kalender (mis. 2026-02-30),
     di masa depan, atau tanggal selesai tidak setelah tanggal mulai.
 
-    Parameter:
-        alasan: kenapa tanggal ditolak, mis. "Format harus YYYY-MM-DD" atau
+    Args:
+        alasan: Kenapa tanggal ditolak, mis. "Format harus YYYY-MM-DD" atau
             "Tidak boleh di masa depan". Ditambahkan di belakang pesan.
-        kolom: isian tanggal yang salah: "tanggal_panen" (bawaan),
+        kolom: Isian tanggal yang salah: "tanggal_panen" (bawaan),
             "tanggal_mulai", atau "tanggal_selesai".
     """
 
@@ -76,10 +82,10 @@ class NamaKosongException(InputTidakValidException):
     """Nama wajib diisi tetapi kosong atau hanya spasi
     (nama jenis, varietas, keterangan, atau periode).
 
-    Parameter:
-        label: nama isian untuk pesan, mis. "Nama varietas"
+    Args:
+        label: Nama isian untuk pesan, mis. "Nama varietas"
             (menjadi "Nama varietas wajib diisi!").
-        kolom: nama isian untuk ui, mis. "nama_varietas".
+        kolom: Nama isian untuk ui, mis. "nama_varietas".
     """
 
     def __init__(self, label: str, kolom: str):
@@ -107,9 +113,9 @@ class DataTidakDitemukanException(ServiceException):
     Dipakai juga saat create/update ditolak foreign key (sqlite3.IntegrityError
     "FOREIGN KEY constraint failed").
 
-    Parameter:
-        nama_data: data yang dicari, mis. "pohon" atau "varietas Musang King".
-        kolom: isian terkait di form, jika ada.
+    Args:
+        nama_data: Data yang dicari, mis. "pohon" atau "varietas Musang King".
+        kolom: Isian terkait di form, jika ada.
     """
 
     def __init__(self, nama_data: str, kolom: Optional[str] = None):
@@ -121,9 +127,9 @@ class DataSudahAdaException(ServiceException):
     keterangan sudah dipakai, atau nama varietas sudah ada di jenis yang sama
     (sqlite3.IntegrityError "UNIQUE constraint failed").
 
-    Parameter:
-        nama_data: data yang bentrok, mis. "nomor pohon 7".
-        kolom: isian terkait di form, mis. "nomor_pohon".
+    Args:
+        nama_data: Data yang bentrok, mis. "nomor pohon 7".
+        kolom: Isian terkait di form, mis. "nomor_pohon".
     """
 
     def __init__(self, nama_data: str, kolom: Optional[str] = None):
@@ -135,9 +141,9 @@ class DataMasihDipakaiException(ServiceException):
     pohon yang sudah punya catatan buah, atau jenis yang masih punya varietas
     (delete ditolak foreign key, sqlite3.IntegrityError "FOREIGN KEY constraint failed").
 
-    Parameter:
-        nama_data: data yang akan dihapus, mis. "varietas Musang King".
-        kolom: isian terkait di form, jika ada.
+    Args:
+        nama_data: Data yang akan dihapus, mis. "varietas Musang King".
+        kolom: Isian terkait di form, jika ada.
     """
 
     def __init__(self, nama_data: str, kolom: Optional[str] = None):
@@ -148,11 +154,11 @@ class PeriodeBertumpukException(ServiceException):
     """Periode panen tumpang tindih dengan periode lain
     (ditolak trigger di skema dengan pesan 'Periode panen tumpang tindih ...').
 
-    Parameter:
-        nama_periode: periode yang sedang dibuat atau diubah.
-        nama_periode_lain: periode yang bertabrakan, jika diketahui. Pesan dari
+    Args:
+        nama_periode: Periode yang sedang dibuat atau diubah.
+        nama_periode_lain: Periode yang bertabrakan, jika diketahui. Pesan dari
             trigger tidak menyebutkannya; jika None, pesan memakai "periode panen lain".
-        kolom: isian terkait di form, mis. "tanggal_mulai".
+        kolom: Isian terkait di form, mis. "tanggal_mulai".
     """
 
     def __init__(self, nama_periode: str, nama_periode_lain: Optional[str] = None, kolom: Optional[str] = None):
@@ -163,8 +169,8 @@ class PeriodeBertumpukException(ServiceException):
 class PeriodeSudahDitutupException(ServiceException):
     """Periode yang diminta untuk ditutup sudah punya tanggal selesai.
 
-    Parameter:
-        nama_periode: periode yang akan ditutup.
+    Args:
+        nama_periode: Periode yang akan ditutup.
     """
 
     def __init__(self, nama_periode: str):

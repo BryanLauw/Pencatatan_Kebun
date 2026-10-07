@@ -10,11 +10,19 @@ FORMAT_TANGGAL_TAMPIL = "%d-%m-%Y"
 
 
 def folder_data() -> Path:
-    """Folder data pengguna, mis. C:\\Users\\Ayah\\AppData\\Roaming\\PencatatanKebun."""
+    """Folder data pengguna.
+
+    Returns:
+        Path folder, mis. C:\\Users\\Ayah\\AppData\\Roaming\\PencatatanKebun.
+    """
     dasar = os.environ.get("APPDATA") or Path.home()
     return Path(dasar) / NAMA_APLIKASI
 
 
 def lokasi_db() -> Path:
-    """Path file database aplikasi, mis. ...\\AppData\\Roaming\\PencatatanKebun\\kebun.db."""
+    """Path file database aplikasi.
+
+    Returns:
+        Path file, mis. ...\\AppData\\Roaming\\PencatatanKebun\\kebun.db.
+    """
     return folder_data() / NAMA_FILE_DB

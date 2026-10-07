@@ -6,7 +6,11 @@ from datetime import datetime
 class JenisTanaman:
     """Jenis tanaman, mis. "Durian" atau "Mangga". Data master.
 
-    id_jenis dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    Args:
+        nama_jenis: Nama jenis tanaman.
+        deskripsi: Keterangan tambahan, boleh kosong.
+        id_jenis: Id jenis. Dibuat otomatis (UUID) jika tidak diisi, dan tidak
+            punya setter.
     """
 
     def __init__(self, nama_jenis: str, deskripsi: str = "", id_jenis: Optional[str] = None):
@@ -33,9 +37,12 @@ class JenisTanaman:
 class Varietas:
     """Varietas di dalam satu jenis tanaman, mis. "Musang King" untuk Durian. Data master.
 
-    Nama varietas hanya unik di dalam jenisnya.
-
-    id_varietas dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    Args:
+        nama_varietas: Nama varietas. Hanya unik di dalam jenisnya.
+        jenis: Objek JenisTanaman pemilik varietas.
+        deskripsi: Keterangan tambahan, boleh kosong.
+        id_varietas: Id varietas. Dibuat otomatis (UUID) jika tidak diisi, dan
+            tidak punya setter.
     """
 
     def __init__(self, nama_varietas: str, jenis: JenisTanaman, deskripsi: str = "",
@@ -73,7 +80,10 @@ class Pohon:
     Pohon tidak terhubung ke jenis tanaman: satu pohon boleh menghasilkan buah
     dari varietas apa pun (mis. lewat stek).
 
-    id_pohon dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    Args:
+        nomor_pohon: Nomor pohon di kebun.
+        id_pohon: Id pohon. Dibuat otomatis (UUID) jika tidak diisi, dan tidak
+            punya setter.
     """
 
     def __init__(self, nomor_pohon: int, id_pohon: Optional[str] = None):
@@ -93,7 +103,11 @@ class Pohon:
 class KeteranganBuah:
     """Kondisi buah saat dipanen, mis. "Baik" atau "Busuk". Data master.
 
-    id_keterangan dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    Args:
+        nama_keterangan: Nama keterangan.
+        deskripsi: Penjelasan tambahan, boleh kosong.
+        id_keterangan: Id keterangan. Dibuat otomatis (UUID) jika tidak diisi,
+            dan tidak punya setter.
     """
 
     def __init__(self, nama_keterangan: str, deskripsi: str = "",
@@ -121,10 +135,16 @@ class KeteranganBuah:
 class Buah:
     """Satu catatan buah hasil panen.
 
-    Jenis tanaman diketahui lewat varietas.get_jenis(). bobot dalam kg.
-    tanggal_panen berupa teks YYYY-MM-DD.
+    Jenis tanaman diketahui lewat varietas.get_jenis().
 
-    id_buah dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    Args:
+        pohon: Objek Pohon asal buah.
+        varietas: Objek Varietas buah.
+        bobot: Bobot buah dalam kg.
+        keterangan: Objek KeteranganBuah, kondisi buah.
+        tanggal_panen: Tanggal panen, teks YYYY-MM-DD.
+        id_buah: Id buah. Dibuat otomatis (UUID) jika tidak diisi, dan tidak
+            punya setter.
     """
 
     def __init__(self, pohon: Pohon, varietas: Varietas, bobot: float, keterangan: KeteranganBuah,
@@ -173,10 +193,14 @@ class Buah:
 class PeriodePanen:
     """Satu periode panen, mis. "Raya 2026".
 
-    Tanggal berupa teks YYYY-MM-DD. tanggal_selesai None berarti periode masih
-    berjalan.
-
-    id_periode dibuat otomatis (UUID) jika tidak diisi, dan tidak punya setter.
+    Args:
+        nama: Nama periode.
+        tanggal_mulai: Tanggal mulai, teks YYYY-MM-DD.
+        tanggal_selesai: Tanggal selesai, teks YYYY-MM-DD. None berarti periode
+            masih berjalan.
+        deskripsi: Keterangan tambahan, boleh kosong.
+        id_periode: Id periode. Dibuat otomatis (UUID) jika tidak diisi, dan
+            tidak punya setter.
     """
 
     def __init__(self, nama: str, tanggal_mulai: str, tanggal_selesai: Optional[str],
@@ -215,10 +239,11 @@ class PeriodePanen:
         return self.deskripsi
 
     def is_active(self):
-        """True jika periode masih berjalan.
+        """Cek apakah periode masih berjalan.
 
-        Periode aktif jika tanggal selesai kosong, atau hari ini belum melewati
-        tanggal selesai (hari tanggal selesai masih dihitung aktif).
+        Returns:
+            True jika tanggal selesai kosong, atau hari ini belum melewati
+            tanggal selesai (hari tanggal selesai masih dihitung aktif).
         """
         if self.tanggal_selesai is None:
             return True

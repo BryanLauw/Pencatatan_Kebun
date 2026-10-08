@@ -117,6 +117,20 @@ class RepoJenisTanaman:
             for baris in baris_list
         ]
 
+    def is_jenis_used(self, id_jenis: str) -> bool:
+        """Cek apakah ada varietas yang memakai jenis ini.
+
+        Args:
+            id_jenis: Id jenis yang dicek.
+
+        Returns:
+            True jika ada varietas yang memakai jenis ini, False jika tidak.
+        """
+        baris = self.conn.execute(
+            "SELECT COUNT(*) AS jumlah FROM varietas WHERE id_jenis = ?",
+            (id_jenis,)).fetchone()
+        return baris["jumlah"] > 0
+
     def delete(self, id_jenis: str) -> None:
         """Hapus jenis. Tidak error jika id tidak ada.
 

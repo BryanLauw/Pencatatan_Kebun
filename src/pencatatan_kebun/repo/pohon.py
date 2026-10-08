@@ -111,6 +111,20 @@ class RepoPohon:
             for baris in baris_list
         ]
 
+    def is_pohon_used(self, id_pohon: str) -> bool:
+        """Cek apakah pohon sudah dipakai catatan buah.
+
+        Args:
+            id_pohon: Id pohon yang dicek.
+
+        Returns:
+            True jika sudah dipakai, False jika belum.
+        """
+        baris = self.conn.execute(
+            "SELECT COUNT(*) AS jumlah FROM buah WHERE id_pohon = ?",
+            (id_pohon,)).fetchone()
+        return baris["jumlah"] > 0
+
     def delete(self, id_pohon: str) -> None:
         """Hapus pohon. Tidak error jika id tidak ada.
 

@@ -117,6 +117,20 @@ class RepoKeteranganBuah:
             for baris in baris_list
         ]
 
+    def is_keterangan_used(self, id_keterangan: str) -> bool:
+        """Cek apakah keterangan sudah dipakai catatan buah.
+
+        Args:
+            id_keterangan: Id keterangan yang dicek.
+
+        Returns:
+            True jika ada catatan buah yang pakai keterangan ini.
+        """
+        baris = self.conn.execute(
+            "SELECT COUNT(*) AS jumlah FROM buah WHERE id_keterangan = ?",
+            (id_keterangan,)).fetchone()
+        return baris["jumlah"] > 0
+
     def delete(self, id_keterangan: str) -> None:
         """Hapus keterangan. Tidak error jika id tidak ada.
 

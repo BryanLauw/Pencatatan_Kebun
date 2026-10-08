@@ -136,6 +136,46 @@ class RepoVarietas:
             for baris in baris_list
         ]
 
+    def read_by_jenis(self, jenis: Optional[JenisTanaman]) -> list[Varietas]:
+        """Ambil varietas di satu jenis.
+        
+        Args:
+            jenis: Jenis pemilik varietas. Jika None, ambil semua varietas.
+            
+        Returns:
+            Daftar Varietas, urut berdasarkan nama varietas. Jenis di setiap
+            Varietas ikut dimuat. Jenis tidak ada di database menghasilkan [].
+        """
+        if jenis is None:
+            return self.read_all()
+        baris_list = self.conn.execute(
+            "SELECT id_varietas, nama_varietas, id_jenis, deskripsi FROM varietas WHERE id_jenis = ? ORDER BY nama_varietas",
+            (jenis.get_id_jenis(),)).fetchall()
+
+        return [
+            Varietas(
+                baris["nama_varietas"],
+                RepoJenisTanaman(self.conn).read(baris["id_jenis"]),
+                baris["deskripsi"],
+                id_varietas=baris["id_varietas"]
+            )
+            for baris in baris_list
+        ]
+
+    def is_varietas_used(self, id_varietas: str) -> bool:
+        """Cek apakah varietas sudah dipakai catatan buah.
+
+        Args:
+            id_varietas: Id varietas yang dicek.
+
+        Returns:
+            True jika ada catatan buah yang memakai varietas ini, False jika tidak.
+        """
+        baris = self.conn.execute(
+            "SELECT COUNT(*) AS jumlah FROM buah WHERE id_varietas = ?",
+            (id_varietas,)).fetchone()
+        return baris["jumlah"] > 0
+
     def delete(self, id_varietas: str) -> None:
         """Hapus varietas. Tidak error jika id tidak ada.
 

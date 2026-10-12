@@ -162,16 +162,16 @@ class RepoVarietas:
         ]
 
     def is_varietas_used(self, id_varietas: str) -> bool:
-        """Cek apakah varietas sudah dipakai catatan buah.
+        """Cek apakah varietas sudah dipakai pohon.
 
         Args:
             id_varietas: Id varietas yang dicek.
 
         Returns:
-            True jika ada catatan buah yang memakai varietas ini, False jika tidak.
+            True jika ada pohon yang memakai varietas ini, False jika tidak.
         """
         baris = self.conn.execute(
-            "SELECT COUNT(*) AS jumlah FROM buah WHERE id_varietas = ?",
+            "SELECT COUNT(*) AS jumlah FROM pohon WHERE id_varietas = ?",
             (id_varietas,)).fetchone()
         return baris["jumlah"] > 0
 
@@ -182,7 +182,7 @@ class RepoVarietas:
             id_varietas: Id varietas yang dihapus.
 
         Raises:
-            sqlite3.IntegrityError: Varietas masih dipakai catatan buah.
+            sqlite3.IntegrityError: Varietas masih dipakai pohon.
         """
         self.conn.execute(
             "DELETE FROM varietas WHERE id_varietas = ?",

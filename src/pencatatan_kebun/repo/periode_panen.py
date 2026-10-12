@@ -186,6 +186,22 @@ class RepoPeriodePanen:
             id_periode=baris["id_periode"]
         )
 
+    def is_periode_used(self, id_periode: str) -> bool:
+        """Cek apakah periode sudah dipakai stok pohon.
+
+        Catatan buah tidak dihitung, karena buah tidak terhubung langsung ke periode.
+
+        Args:
+            id_periode: Id periode yang dicek.
+
+        Returns:
+            True jika sudah dipakai, False jika belum.
+        """
+        baris = self.conn.execute(
+            "SELECT COUNT(*) AS jumlah FROM stok_pohon WHERE id_periode = ?",
+            (id_periode,)).fetchone()
+        return baris["jumlah"] > 0
+
     def delete(self, id_periode: str) -> None:
         """Hapus periode. Tidak error jika id tidak ada.
 
@@ -193,6 +209,9 @@ class RepoPeriodePanen:
 
         Args:
             id_periode: Id periode yang dihapus.
+
+        Raises:
+            sqlite3.IntegrityError: Periode masih dipakai stok pohon.
         """
         self.conn.execute(
             "DELETE FROM periode_panen WHERE id_periode = ?",

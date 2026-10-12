@@ -74,20 +74,21 @@ class Varietas:
 
 
 class Pohon:
-    """Satu pohon di kebun, dikenali dari nomornya. Data master.
+    """Satu pohon di kebun, dikenali dari varietas dan nomornya. Data master.
 
-    Pohon tidak terhubung ke jenis tanaman: satu pohon boleh menghasilkan buah
-    dari varietas apa pun (mis. lewat stek).
+    Jenis tanaman diketahui lewat varietas.get_jenis().
 
     Args:
-        nomor_pohon: Nomor pohon di kebun.
+        nomor_pohon: Nomor pohon di kebun. Hanya unik di dalam varietasnya.
+        varietas: Objek Varietas pohon.
         id_pohon: Id pohon. Dibuat otomatis (UUID) jika tidak diisi, dan tidak
             punya setter.
     """
 
-    def __init__(self, nomor_pohon: int, id_pohon: str | None = None):
+    def __init__(self, nomor_pohon: int, varietas: Varietas, id_pohon: str | None = None):
         self.id_pohon = id_pohon or str(uuid.uuid4())
         self.nomor_pohon = nomor_pohon
+        self.varietas = varietas
 
     def get_id_pohon(self):
         return self.id_pohon
@@ -97,6 +98,12 @@ class Pohon:
 
     def get_nomor_pohon(self):
         return self.nomor_pohon
+
+    def set_varietas(self, varietas: Varietas):
+        self.varietas = varietas
+
+    def get_varietas(self):
+        return self.varietas
 
 
 class KeteranganBuah:
@@ -132,13 +139,12 @@ class KeteranganBuah:
 
 
 class Buah:
-    """Satu catatan buah hasil panen.
+    """Satu catatan buah hasil panen (termasuk buah gugur, lewat keterangan).
 
-    Jenis tanaman diketahui lewat varietas.get_jenis().
+    Varietas diketahui lewat pohon.get_varietas().
 
     Args:
         pohon: Objek Pohon asal buah.
-        varietas: Objek Varietas buah.
         bobot: Bobot buah dalam kg.
         keterangan: Objek KeteranganBuah, kondisi buah.
         tanggal_panen: Tanggal panen, teks YYYY-MM-DD.
@@ -146,11 +152,10 @@ class Buah:
             punya setter.
     """
 
-    def __init__(self, pohon: Pohon, varietas: Varietas, bobot: float, keterangan: KeteranganBuah,
+    def __init__(self, pohon: Pohon, bobot: float, keterangan: KeteranganBuah,
                  tanggal_panen: str, id_buah: str | None = None):
         self.id_buah = id_buah or str(uuid.uuid4())
         self.pohon = pohon
-        self.varietas = varietas
         self.bobot = bobot
         self.keterangan = keterangan
         self.tanggal_panen = tanggal_panen
@@ -163,12 +168,6 @@ class Buah:
 
     def get_pohon(self):
         return self.pohon
-
-    def set_varietas(self, varietas: Varietas):
-        self.varietas = varietas
-
-    def get_varietas(self):
-        return self.varietas
 
     def set_bobot(self, bobot: float):
         self.bobot = bobot
@@ -250,3 +249,44 @@ class PeriodePanen:
             today = datetime.now().date()
             tanggal_selesai_date = datetime.strptime(self.tanggal_selesai, "%Y-%m-%d").date()
             return today <= tanggal_selesai_date
+
+
+class StokPohon:
+    """Jumlah buah di satu pohon pada satu periode panen.
+
+    Tidak punya id sendiri: satu pohon hanya punya satu stok per periode, jadi
+    dikenali dari pasangan pohon dan periode (keduanya tidak punya setter).
+    Sisa buah tidak disimpan, tetapi dihitung dari jumlah_buah dikurangi
+    catatan buah pohon itu di dalam periode.
+
+    Args:
+        pohon: Objek Pohon.
+        periode: Objek PeriodePanen.
+        jumlah_buah: Jumlah buah di pohon saat dihitung.
+        tanggal_hitung: Tanggal buah dihitung, teks YYYY-MM-DD.
+    """
+
+    def __init__(self, pohon: Pohon, periode: PeriodePanen, jumlah_buah: int,
+                 tanggal_hitung: str):
+        self.pohon = pohon
+        self.periode = periode
+        self.jumlah_buah = jumlah_buah
+        self.tanggal_hitung = tanggal_hitung
+
+    def get_pohon(self):
+        return self.pohon
+
+    def get_periode(self):
+        return self.periode
+
+    def set_jumlah_buah(self, jumlah_buah: int):
+        self.jumlah_buah = jumlah_buah
+
+    def get_jumlah_buah(self):
+        return self.jumlah_buah
+
+    def set_tanggal_hitung(self, tanggal_hitung: str):
+        self.tanggal_hitung = tanggal_hitung
+
+    def get_tanggal_hitung(self):
+        return self.tanggal_hitung

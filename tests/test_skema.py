@@ -20,22 +20,29 @@ def isi_induk(conn: sqlite3.Connection) -> None:
 
 def isi_pohon(conn: sqlite3.Connection) -> None:
     isi_induk(conn)
-    conn.execute("INSERT INTO pohon VALUES ('p1', 1)")
+    conn.execute("INSERT INTO pohon VALUES ('p1', 'v1', 1)")
     conn.execute("INSERT INTO keterangan_buah VALUES ('baik', 'Baik', NULL)")
 
 
-def tambah_buah(conn, id_buah="b1", id_pohon="p1", id_varietas="v1", id_keterangan="baik",
+def tambah_buah(conn, id_buah="b1", id_pohon="p1", id_keterangan="baik",
                 bobot=1.25, tanggal="2026-01-15"):
     return conn.execute(
-        "INSERT INTO buah (id_buah, id_pohon, id_varietas, tanggal_panen, id_keterangan, bobot) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (id_buah, id_pohon, id_varietas, tanggal, id_keterangan, bobot))
+        "INSERT INTO buah (id_buah, id_pohon, tanggal_panen, id_keterangan, bobot) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (id_buah, id_pohon, tanggal, id_keterangan, bobot))
 
 
 def tambah_periode(conn, id_periode, mulai, selesai, nama="Periode"):
     return conn.execute(
         "INSERT INTO periode_panen VALUES (?, ?, ?, ?, NULL)",
         (id_periode, nama, mulai, selesai))
+
+
+def tambah_stok(conn, id_pohon="p1", id_periode="r1", jumlah=10, tanggal="2026-01-10"):
+    return conn.execute(
+        "INSERT INTO stok_pohon (id_pohon, id_periode, jumlah_buah, tanggal_hitung) "
+        "VALUES (?, ?, ?, ?)",
+        (id_pohon, id_periode, jumlah, tanggal))
 
 
 class TestSkema(unittest.TestCase):
@@ -61,7 +68,8 @@ class TestSkema(unittest.TestCase):
             "SELECT name FROM sqlite_master WHERE type='table'")}
         self.assertEqual(
             nama,
-            {"jenis_tanaman", "varietas", "pohon", "keterangan_buah", "buah", "periode_panen"})
+            {"jenis_tanaman", "varietas", "pohon", "keterangan_buah", "buah", "periode_panen",
+             "stok_pohon"})
 
     def test_skema_bisa_dijalankan_dua_kali(self):
         self.conn.executescript(SKEMA.read_text(encoding="utf-8"))
@@ -131,16 +139,36 @@ class TestSkema(unittest.TestCase):
         isi_pohon(self.conn)
 
     def test_nomor_pohon_wajib_diisi(self):
+        isi_induk(self.conn)
         with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute("INSERT INTO pohon VALUES ('p1', NULL)")
+            self.conn.execute("INSERT INTO pohon VALUES ('p1', 'v1', NULL)")
 
-    def test_nomor_pohon_unik(self):
+    def test_nomor_pohon_harus_positif(self):
+        isi_induk(self.conn)
+        for nomor in (0, -1):
+            with self.assertRaises(sqlite3.IntegrityError, msg=str(nomor)):
+                self.conn.execute("INSERT INTO pohon VALUES ('p1', 'v1', ?)", (nomor,))
+
+    def test_nomor_pohon_unik_per_varietas(self):
         isi_pohon(self.conn)
         with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute("INSERT INTO pohon VALUES ('p2', 1)")
+            self.conn.execute("INSERT INTO pohon VALUES ('p2', 'v1', 1)")
 
-    def test_pohon_tidak_punya_kolom_jenis_dan_varietas(self):
-        self.assertEqual(set(self.kolom("pohon")), {"id_pohon", "nomor_pohon"})
+    def test_nomor_pohon_sama_boleh_di_varietas_lain(self):
+        isi_pohon(self.conn)
+        self.conn.execute("INSERT INTO varietas VALUES ('v2', 'j1', 'Montong', NULL)")
+        self.conn.execute("INSERT INTO pohon VALUES ('p2', 'v2', 1)")
+
+    def test_pohon_wajib_punya_varietas(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute("INSERT INTO pohon (id_pohon, nomor_pohon) VALUES ('p1', 1)")
+
+    def test_pohon_menolak_varietas_yang_tidak_ada(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute("INSERT INTO pohon VALUES ('p1', 'xx', 1)")
+
+    def test_kolom_pohon(self):
+        self.assertEqual(set(self.kolom("pohon")), {"id_pohon", "id_varietas", "nomor_pohon"})
 
     # ---- keterangan_buah ----
 
@@ -166,33 +194,8 @@ class TestSkema(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError):
             tambah_buah(self.conn, id_pohon="xx")
 
-    def test_buah_menolak_varietas_yang_tidak_ada(self):
-        isi_pohon(self.conn)
-        with self.assertRaises(sqlite3.IntegrityError):
-            tambah_buah(self.conn, id_varietas="xx")
-
-    def test_buah_wajib_punya_varietas(self):
-        isi_pohon(self.conn)
-        with self.assertRaises(sqlite3.IntegrityError):
-            self.conn.execute(
-                "INSERT INTO buah (id_buah, id_pohon, tanggal_panen, id_keterangan, bobot) "
-                "VALUES ('b1', 'p1', '2026-01-15', 'baik', 1.0)")
-
-    def test_satu_pohon_boleh_berbuah_beberapa_varietas(self):
-        isi_pohon(self.conn)
-        self.conn.execute("INSERT INTO varietas VALUES ('v2', 'j1', 'D24', NULL)")
-        tambah_buah(self.conn, "b1", id_varietas="v1")
-        tambah_buah(self.conn, "b2", id_varietas="v2")
-        jumlah = self.conn.execute(
-            "SELECT COUNT(DISTINCT id_varietas) FROM buah WHERE id_pohon = 'p1'").fetchone()[0]
-        self.assertEqual(jumlah, 2)
-
-    def test_satu_pohon_boleh_berbuah_varietas_dari_jenis_berbeda(self):
-        isi_pohon(self.conn)
-        self.conn.execute("INSERT INTO jenis_tanaman VALUES ('j2', 'Alpukat', NULL)")
-        self.conn.execute("INSERT INTO varietas VALUES ('v2', 'j2', 'Miki', NULL)")
-        tambah_buah(self.conn, "b1", id_varietas="v1")
-        tambah_buah(self.conn, "b2", id_varietas="v2")
+    def test_buah_tidak_punya_kolom_varietas(self):
+        self.assertNotIn("id_varietas", self.kolom("buah"))
 
     def test_jenis_varietas_boleh_dipindah_walau_dipakai_buah(self):
         isi_pohon(self.conn)
@@ -240,6 +243,86 @@ class TestSkema(unittest.TestCase):
         for tabel in ("pohon", "varietas", "jenis_tanaman", "keterangan_buah"):
             with self.assertRaises(sqlite3.IntegrityError, msg=tabel):
                 self.conn.execute(f"DELETE FROM {tabel}")
+
+    # ---- stok_pohon ----
+
+    def test_stok_bisa_ditambahkan(self):
+        isi_pohon(self.conn)
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        tambah_stok(self.conn)
+
+    def test_kunci_stok_adalah_pohon_dan_periode(self):
+        kunci = {r[1]: r[5] for r in self.conn.execute("PRAGMA table_info(stok_pohon)")}
+        self.assertEqual(kunci["id_pohon"], 1)
+        self.assertEqual(kunci["id_periode"], 2)
+        self.assertEqual(kunci["jumlah_buah"], 0)
+
+    def test_stok_satu_pohon_satu_periode(self):
+        isi_pohon(self.conn)
+        tambah_periode(self.conn, "r1", "2026-01-01", "2026-03-31")
+        tambah_stok(self.conn)
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_stok(self.conn, jumlah=5)
+
+    def test_stok_pohon_sama_boleh_di_periode_lain(self):
+        isi_pohon(self.conn)
+        tambah_periode(self.conn, "r1", "2026-01-01", "2026-03-31")
+        tambah_periode(self.conn, "r2", "2026-04-01", None)
+        tambah_stok(self.conn, id_periode="r1")
+        tambah_stok(self.conn, id_periode="r2", tanggal="2026-04-05")
+
+    def test_stok_menolak_pohon_atau_periode_yang_tidak_ada(self):
+        isi_pohon(self.conn)
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_stok(self.conn, id_pohon="xx")
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_stok(self.conn, id_periode="xx")
+
+    def test_stok_jumlah_nol_diterima_negatif_ditolak(self):
+        isi_pohon(self.conn)
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        tambah_stok(self.conn, jumlah=0)
+        self.conn.execute("DELETE FROM stok_pohon")
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_stok(self.conn, jumlah=-1)
+
+    def test_stok_jumlah_wajib_diisi(self):
+        isi_pohon(self.conn)
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        with self.assertRaises(sqlite3.IntegrityError):
+            tambah_stok(self.conn, jumlah=None)
+
+    def test_stok_menolak_format_tanggal_salah(self):
+        isi_pohon(self.conn)
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        for tanggal in ("10-01-2026", "2026-02-30", "", None):
+            with self.assertRaises(sqlite3.IntegrityError, msg=repr(tanggal)):
+                tambah_stok(self.conn, tanggal=tanggal)
+
+    def test_hapus_pohon_atau_periode_ditolak_jika_punya_stok(self):
+        isi_pohon(self.conn)
+        tambah_periode(self.conn, "r1", "2026-01-01", None)
+        tambah_stok(self.conn)
+        for tabel in ("pohon", "periode_panen"):
+            with self.assertRaises(sqlite3.IntegrityError, msg=tabel):
+                self.conn.execute(f"DELETE FROM {tabel}")
+
+    def test_sisa_buah_dihitung_dari_stok_dan_catatan_buah(self):
+        isi_pohon(self.conn)
+        self.conn.execute("INSERT INTO keterangan_buah VALUES ('gugur', 'Gugur', NULL)")
+        tambah_periode(self.conn, "r1", "2026-01-01", "2026-03-31")
+        tambah_stok(self.conn, jumlah=10)
+        tambah_buah(self.conn, "b1", tanggal="2026-01-15")
+        tambah_buah(self.conn, "b2", id_keterangan="gugur", tanggal="2026-02-01")
+        tambah_buah(self.conn, "b3", tanggal="2026-04-01")
+        sisa = self.conn.execute(
+            "SELECT s.jumlah_buah - COUNT(b.id_buah) FROM stok_pohon s "
+            "JOIN periode_panen r ON r.id_periode = s.id_periode "
+            "LEFT JOIN buah b ON b.id_pohon = s.id_pohon "
+            "AND b.tanggal_panen BETWEEN r.tanggal_mulai AND r.tanggal_selesai "
+            "GROUP BY s.id_pohon, s.id_periode").fetchone()[0]
+        self.assertEqual(sisa, 8)
 
     # ---- periode_panen ----
 

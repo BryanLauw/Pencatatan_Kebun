@@ -4,6 +4,7 @@ from datetime import date
 from pencatatan_kebun.models import PeriodePanen
 from pencatatan_kebun.repo.periode_panen import RepoPeriodePanen
 from pencatatan_kebun.services.exception import (
+    DataMasihDipakaiException,
     DataSudahAdaException,
     DataTidakDitemukanException,
     NamaKosongException,
@@ -166,9 +167,13 @@ class PeriodeService:
 
         Raises:
             DataTidakDitemukanException: Periode tidak ditemukan.
+            DataMasihDipakaiException: Periode sudah punya stok pohon.
         """
-        if self.repo_periode.read(id_periode) is None:
+        periode = self.repo_periode.read(id_periode)
+        if periode is None:
             raise DataTidakDitemukanException(f"periode panen dengan id {id_periode}", kolom="id_periode")
+        if self.repo_periode.is_periode_used(id_periode):
+            raise DataMasihDipakaiException(f"periode panen {periode.get_nama()}", kolom="id_periode")
 
         self.repo_periode.delete(id_periode)
         self.conn.commit()

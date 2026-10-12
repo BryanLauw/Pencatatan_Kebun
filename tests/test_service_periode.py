@@ -6,7 +6,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pencatatan_kebun.db.koneksi import buka_koneksi
+from pencatatan_kebun.models import StokPohon
+from pencatatan_kebun.repo.stok_pohon import RepoStokPohon
 from pencatatan_kebun.services.exception import (
+    DataMasihDipakaiException,
     DataSudahAdaException,
     DataTidakDitemukanException,
     NamaKosongException,
@@ -14,6 +17,7 @@ from pencatatan_kebun.services.exception import (
     PeriodeSudahDitutupException,
     TanggalTidakValidException,
 )
+from pencatatan_kebun.services.master import MasterService
 from pencatatan_kebun.services.periode import PeriodeService
 
 
@@ -239,6 +243,18 @@ class TestHapusPeriode(DasarPeriode):
         self.service.hapus_periode(periode.get_id_periode())
         self.assertTersimpan()
         self.assertIsNone(self.baca(periode))
+
+    def test_periode_yang_punya_stok_ditolak(self):
+        periode = self.service.buka_periode("Raya", "2025-01-01")
+        master = MasterService(self.conn)
+        varietas = master.tambah_varietas(master.tambah_jenis("Durian"), "Musang King")
+        pohon = master.tambah_pohon(varietas, 1)
+        RepoStokPohon(self.conn).create(StokPohon(pohon, periode, 5, "2025-01-02"))
+        self.conn.commit()
+        with self.assertRaises(DataMasihDipakaiException) as cm:
+            self.service.hapus_periode(periode.get_id_periode())
+        self.assertIn("Raya", cm.exception.pesan)
+        self.assertIsNotNone(self.baca(periode))
 
     def test_id_tidak_ada_ditolak(self):
         with self.assertRaises(DataTidakDitemukanException) as cm:

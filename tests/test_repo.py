@@ -6,12 +6,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pencatatan_kebun.db.koneksi import buka_koneksi
-from pencatatan_kebun.models import Buah, JenisTanaman, KeteranganBuah, PeriodePanen, Pohon, Varietas
+from pencatatan_kebun.models import (
+    Buah,
+    JenisTanaman,
+    KeteranganBuah,
+    PeriodePanen,
+    Pohon,
+    StokPohon,
+    Varietas,
+)
 from pencatatan_kebun.repo.buah import RepoBuah
 from pencatatan_kebun.repo.jenis_tanaman import RepoJenisTanaman
 from pencatatan_kebun.repo.keterangan_buah import RepoKeteranganBuah
 from pencatatan_kebun.repo.periode_panen import RepoPeriodePanen
 from pencatatan_kebun.repo.pohon import RepoPohon
+from pencatatan_kebun.repo.stok_pohon import RepoStokPohon
 from pencatatan_kebun.repo.varietas import RepoVarietas
 
 
@@ -27,20 +36,24 @@ class DasarRepo(unittest.TestCase):
         self.repo_keterangan = RepoKeteranganBuah(self.conn)
         self.repo_buah = RepoBuah(self.conn)
         self.repo_periode = RepoPeriodePanen(self.conn)
+        self.repo_stok = RepoStokPohon(self.conn)
 
         self.jenis = JenisTanaman("Durian", "Buah berduri")
         self.varietas = Varietas("Musang King", self.jenis, "Daging kuning")
-        self.pohon = Pohon(7)
+        self.pohon = Pohon(7, self.varietas)
         self.baik = KeteranganBuah("Baik", "Layak jual")
 
-    def simpan_induk(self):
+    def simpan_varietas(self):
         self.repo_jenis.create(self.jenis)
         self.repo_varietas.create(self.varietas)
+
+    def simpan_induk(self):
+        self.simpan_varietas()
         self.repo_pohon.create(self.pohon)
         self.repo_keterangan.create(self.baik)
 
     def buah_baru(self, **ubah):
-        data = dict(pohon=self.pohon, varietas=self.varietas, bobot=1.25,
+        data = dict(pohon=self.pohon, bobot=1.25,
                     keterangan=self.baik, tanggal_panen="2026-01-15")
         data.update(ubah)
         return Buah(**data)
@@ -91,16 +104,38 @@ class TestRepo(DasarRepo):
 
     # ---- pohon ----
 
-    def test_pohon_create_dan_read(self):
+    def test_pohon_create_dan_read_beserta_varietas(self):
+        self.simpan_varietas()
         self.repo_pohon.create(self.pohon)
         hasil = self.repo_pohon.read(self.pohon.get_id_pohon())
         self.assertEqual(hasil.get_id_pohon(), self.pohon.get_id_pohon())
         self.assertEqual(hasil.get_nomor_pohon(), 7)
+        self.assertEqual(hasil.get_varietas().get_id_varietas(), self.varietas.get_id_varietas())
+        self.assertEqual(hasil.get_varietas().get_jenis().get_id_jenis(), self.jenis.get_id_jenis())
 
-    def test_pohon_nomor_ganda_ditolak(self):
+    def test_pohon_ditolak_jika_varietas_belum_disimpan(self):
+        self.repo_jenis.create(self.jenis)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.repo_pohon.create(self.pohon)
+
+    def test_pohon_nomor_ganda_di_varietas_sama_ditolak(self):
+        self.simpan_varietas()
         self.repo_pohon.create(self.pohon)
         with self.assertRaises(sqlite3.IntegrityError):
-            self.repo_pohon.create(Pohon(7))
+            self.repo_pohon.create(Pohon(7, self.varietas))
+
+    def test_pohon_nomor_sama_di_varietas_lain_diterima(self):
+        self.simpan_varietas()
+        montong = Varietas("Montong", self.jenis)
+        self.repo_varietas.create(montong)
+        self.repo_pohon.create(self.pohon)
+        self.repo_pohon.create(Pohon(7, montong))
+        self.assertEqual(len(self.repo_pohon.read_all()), 2)
+
+    def test_pohon_nomor_nol_ditolak(self):
+        self.simpan_varietas()
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.repo_pohon.create(Pohon(0, self.varietas))
 
     # ---- keterangan_buah ----
 
@@ -128,15 +163,16 @@ class TestRepo(DasarRepo):
         self.assertEqual(hasil.get_tanggal_panen(), "2026-01-15")
         self.assertEqual(hasil.get_pohon().get_id_pohon(), self.pohon.get_id_pohon())
         self.assertEqual(hasil.get_pohon().get_nomor_pohon(), 7)
-        self.assertEqual(hasil.get_varietas().get_id_varietas(), self.varietas.get_id_varietas())
-        self.assertEqual(hasil.get_varietas().get_jenis().get_id_jenis(), self.jenis.get_id_jenis())
+        self.assertEqual(hasil.get_pohon().get_varietas().get_id_varietas(),
+                         self.varietas.get_id_varietas())
+        self.assertEqual(hasil.get_pohon().get_varietas().get_jenis().get_id_jenis(),
+                         self.jenis.get_id_jenis())
         self.assertEqual(hasil.get_keterangan().get_id_keterangan(), self.baik.get_id_keterangan())
 
     def test_buah_ditolak_jika_induk_belum_disimpan(self):
         self.simpan_induk()
         kasus = {
-            "pohon": dict(pohon=Pohon(99)),
-            "varietas": dict(varietas=Varietas("D24", self.jenis)),
+            "pohon": dict(pohon=Pohon(99, self.varietas)),
             "keterangan": dict(keterangan=KeteranganBuah("Busuk")),
         }
         for nama, ubah in kasus.items():
@@ -207,11 +243,11 @@ class TestRepoLanjutan(DasarRepo):
         self.repo_jenis.create(mangga)
         d24 = Varietas("D24", self.jenis)
         self.repo_varietas.create(d24)
-        pohon_2 = Pohon(8)
+        pohon_2 = Pohon(8, d24)
         self.repo_pohon.create(pohon_2)
         busuk = KeteranganBuah("Busuk")
         self.repo_keterangan.create(busuk)
-        b1, b2 = self.buah_baru(), self.buah_baru(pohon=pohon_2, varietas=d24, keterangan=busuk)
+        b1, b2 = self.buah_baru(), self.buah_baru(pohon=pohon_2, keterangan=busuk)
         self.repo_buah.create(b1)
         self.repo_buah.create(b2)
         p1 = PeriodePanen("A", "2026-01-01", "2026-03-31")
@@ -236,9 +272,12 @@ class TestRepoLanjutan(DasarRepo):
         self.repo_buah.create(self.buah_baru())
         varietas = self.repo_varietas.read_all()[0]
         self.assertEqual(varietas.get_jenis().get_id_jenis(), self.jenis.get_id_jenis())
+        pohon = self.repo_pohon.read_all()[0]
+        self.assertEqual(pohon.get_varietas().get_id_varietas(), self.varietas.get_id_varietas())
         buah = self.repo_buah.read_all()[0]
         self.assertEqual(buah.get_pohon().get_id_pohon(), self.pohon.get_id_pohon())
-        self.assertEqual(buah.get_varietas().get_id_varietas(), self.varietas.get_id_varietas())
+        self.assertEqual(buah.get_pohon().get_varietas().get_id_varietas(),
+                         self.varietas.get_id_varietas())
         self.assertEqual(buah.get_keterangan().get_id_keterangan(), self.baik.get_id_keterangan())
 
     # ---- cari berdasarkan nama / nomor ----
@@ -286,11 +325,20 @@ class TestRepoLanjutan(DasarRepo):
         self.assertIsNone(self.repo_varietas.read_by_name("Montong", self.jenis))
         self.assertIsNone(self.repo_keterangan.read_by_name("Cacat"))
 
-    def test_read_by_number_pohon(self):
+    def test_read_by_number_pohon_sesuai_varietas(self):
+        self.simpan_varietas()
+        montong = Varietas("Montong", self.jenis)
+        self.repo_varietas.create(montong)
+        pohon_montong = Pohon(7, montong)
         self.repo_pohon.create(self.pohon)
+        self.repo_pohon.create(pohon_montong)
         self.assertEqual(
-            self.repo_pohon.read_by_number(7).get_id_pohon(), self.pohon.get_id_pohon())
-        self.assertIsNone(self.repo_pohon.read_by_number(99))
+            self.repo_pohon.read_by_number(7, self.varietas).get_id_pohon(),
+            self.pohon.get_id_pohon())
+        self.assertEqual(
+            self.repo_pohon.read_by_number(7, montong).get_id_pohon(),
+            pohon_montong.get_id_pohon())
+        self.assertIsNone(self.repo_pohon.read_by_number(99, self.varietas))
 
     def test_read_by_names(self):
         self.simpan_induk()
@@ -314,10 +362,13 @@ class TestRepoLanjutan(DasarRepo):
                          {self.baik.get_id_keterangan(), busuk.get_id_keterangan()})
 
     def test_read_by_numbers(self):
-        pohon_8, pohon_9 = Pohon(8), Pohon(9)
-        for pohon in (self.pohon, pohon_8, pohon_9):
+        self.simpan_varietas()
+        montong = Varietas("Montong", self.jenis)
+        self.repo_varietas.create(montong)
+        pohon_8, pohon_9 = Pohon(8, self.varietas), Pohon(9, self.varietas)
+        for pohon in (self.pohon, pohon_8, pohon_9, Pohon(9, montong)):
             self.repo_pohon.create(pohon)
-        hasil = self.repo_pohon.read_by_numbers([7, 9, 100])
+        hasil = self.repo_pohon.read_by_numbers([7, 9, 100], self.varietas)
         self.assertEqual(self.id_dari(hasil, "get_id_pohon"),
                          {self.pohon.get_id_pohon(), pohon_9.get_id_pohon()})
 
@@ -326,8 +377,20 @@ class TestRepoLanjutan(DasarRepo):
         self.assertEqual(self.repo_jenis.read_by_names([]), [])
         self.assertEqual(self.repo_varietas.read_by_names([]), [])
         self.assertEqual(self.repo_keterangan.read_by_names([]), [])
-        self.assertEqual(self.repo_pohon.read_by_numbers([]), [])
+        self.assertEqual(self.repo_pohon.read_by_numbers([], self.varietas), [])
         self.assertEqual(self.repo_buah.read_by_harvest_dates([]), [])
+
+    def test_read_by_varietas_pohon(self):
+        self.simpan_varietas()
+        montong = Varietas("Montong", self.jenis)
+        self.repo_varietas.create(montong)
+        pohon_montong = Pohon(1, montong)
+        self.repo_pohon.create(self.pohon)
+        self.repo_pohon.create(pohon_montong)
+        self.assertEqual(self.id_dari(self.repo_pohon.read_by_varietas(montong), "get_id_pohon"),
+                         {pohon_montong.get_id_pohon()})
+        self.assertEqual(len(self.repo_pohon.read_by_varietas(None)), 2)
+        self.assertEqual(self.repo_pohon.read_by_varietas(Varietas("D24", self.jenis)), [])
 
     # ---- buah berdasarkan tanggal panen ----
 
@@ -343,7 +406,7 @@ class TestRepoLanjutan(DasarRepo):
         hasil = self.repo_buah.read_by_harvest_date("2026-01-15")
         self.assertEqual(self.id_dari(hasil, "get_id_buah"),
                          {b1.get_id_buah(), b2.get_id_buah()})
-        self.assertEqual(hasil[0].get_varietas().get_id_varietas(),
+        self.assertEqual(hasil[0].get_pohon().get_varietas().get_id_varietas(),
                          self.varietas.get_id_varietas())
         self.assertEqual(self.repo_buah.read_by_harvest_date("2026-02-01"), [])
 
@@ -365,12 +428,12 @@ class TestRepoLanjutan(DasarRepo):
         hasil = self.repo_buah.read_by_harvest_date_range("2026-01-10", "2026-01-20")
         self.assertEqual([b.get_id_buah() for b in hasil],
                          [awal.get_id_buah(), tengah.get_id_buah(), akhir.get_id_buah()])
-        self.assertEqual(hasil[0].get_varietas().get_id_varietas(),
+        self.assertEqual(hasil[0].get_pohon().get_varietas().get_id_varietas(),
                          self.varietas.get_id_varietas())
 
     def test_read_by_harvest_date_range_urut_tanggal_lalu_nomor_pohon(self):
         self.simpan_induk()
-        pohon_3 = Pohon(3)
+        pohon_3 = Pohon(3, self.varietas)
         self.repo_pohon.create(pohon_3)
         b1 = self.buah_baru(pohon=self.pohon, tanggal_panen="2026-01-16")
         b2 = self.buah_baru(pohon=self.pohon, tanggal_panen="2026-01-15")
@@ -386,6 +449,20 @@ class TestRepoLanjutan(DasarRepo):
         self.simpan_induk()
         self.repo_buah.create(self.buah_baru(tanggal_panen="2026-01-15"))
         self.assertEqual(self.repo_buah.read_by_harvest_date_range("2026-02-01", "2026-02-28"), [])
+
+    def test_count_by_pohon_date_range(self):
+        self.simpan_induk()
+        pohon_8 = Pohon(8, self.varietas)
+        self.repo_pohon.create(pohon_8)
+        for tanggal in ("2026-01-09", "2026-01-10", "2026-01-15", "2026-01-20", "2026-01-21"):
+            self.repo_buah.create(self.buah_baru(tanggal_panen=tanggal))
+        self.repo_buah.create(self.buah_baru(pohon=pohon_8, tanggal_panen="2026-01-15"))
+        self.assertEqual(self.repo_buah.count_by_pohon_date_range(
+            self.pohon.get_id_pohon(), "2026-01-10", "2026-01-20"), 3)
+        self.assertEqual(self.repo_buah.count_by_pohon_date_range(
+            pohon_8.get_id_pohon(), "2026-01-10", "2026-01-20"), 1)
+        self.assertEqual(self.repo_buah.count_by_pohon_date_range(
+            self.pohon.get_id_pohon(), "2026-02-01", "2026-02-28"), 0)
 
     # ---- periode_panen: ambil_rentang ----
 
@@ -440,12 +517,30 @@ class TestRepoLanjutan(DasarRepo):
                 ["Mangga", "Durian", "alpukat"])], harapan)
 
     def test_urutan_pohon_berdasarkan_nomor(self):
+        self.simpan_varietas()
         for nomor in (10, 2, 7):
-            self.repo_pohon.create(Pohon(nomor))
+            self.repo_pohon.create(Pohon(nomor, self.varietas))
         self.assertEqual([p.get_nomor_pohon() for p in self.repo_pohon.read_all()], [2, 7, 10])
         self.assertEqual(
-            [p.get_nomor_pohon() for p in self.repo_pohon.read_by_numbers([10, 2])],
+            [p.get_nomor_pohon() for p in self.repo_pohon.read_by_numbers([10, 2], self.varietas)],
             [2, 10])
+        self.assertEqual(
+            [p.get_nomor_pohon() for p in self.repo_pohon.read_by_varietas(self.varietas)],
+            [2, 7, 10])
+
+    def test_urutan_pohon_berdasarkan_jenis_varietas_lalu_nomor(self):
+        alpukat = JenisTanaman("Alpukat")
+        self.repo_jenis.create(alpukat)
+        self.simpan_varietas()
+        kendil, montong = Varietas("Kendil", alpukat), Varietas("Montong", self.jenis)
+        self.repo_varietas.create(kendil)
+        self.repo_varietas.create(montong)
+        for nomor, varietas in ((2, montong), (1, self.varietas), (1, montong), (3, kendil)):
+            self.repo_pohon.create(Pohon(nomor, varietas))
+        self.assertEqual(
+            [(p.get_varietas().get_nama_varietas(), p.get_nomor_pohon())
+             for p in self.repo_pohon.read_all()],
+            [("Kendil", 3), ("Montong", 1), ("Montong", 2), ("Musang King", 1)])
 
     def test_urutan_varietas_berdasarkan_jenis_lalu_nama(self):
         mangga, durian = JenisTanaman("Mangga"), JenisTanaman("Durian")
@@ -467,7 +562,7 @@ class TestRepoLanjutan(DasarRepo):
 
     def test_urutan_buah_berdasarkan_tanggal_lalu_nomor_pohon(self):
         self.simpan_induk()
-        pohon_2 = Pohon(2)
+        pohon_2 = Pohon(2, self.varietas)
         self.repo_pohon.create(pohon_2)
         for tanggal, pohon in (("2026-01-16", self.pohon), ("2026-01-15", self.pohon),
                                ("2026-01-16", pohon_2), ("2026-01-15", pohon_2)):
@@ -504,9 +599,9 @@ class TestRepoLanjutan(DasarRepo):
         # urutan dari anak ke induk agar foreign key tidak menolak
         kasus = [
             (self.repo_buah, buah.get_id_buah()),
+            (self.repo_pohon, self.pohon.get_id_pohon()),
             (self.repo_varietas, self.varietas.get_id_varietas()),
             (self.repo_jenis, self.jenis.get_id_jenis()),
-            (self.repo_pohon, self.pohon.get_id_pohon()),
             (self.repo_keterangan, self.baik.get_id_keterangan()),
             (self.repo_periode, periode.get_id_periode()),
         ]
@@ -515,7 +610,8 @@ class TestRepoLanjutan(DasarRepo):
             self.assertIsNone(repo.read(id_objek), type(repo).__name__)
 
     def test_delete_hanya_menghapus_id_yang_diminta(self):
-        pohon_8 = Pohon(8)
+        self.simpan_varietas()
+        pohon_8 = Pohon(8, self.varietas)
         self.repo_pohon.create(self.pohon)
         self.repo_pohon.create(pohon_8)
         self.repo_pohon.delete(self.pohon.get_id_pohon())
@@ -523,6 +619,7 @@ class TestRepoLanjutan(DasarRepo):
                          {pohon_8.get_id_pohon()})
 
     def test_delete_id_yang_tidak_ada_tidak_error(self):
+        self.simpan_varietas()
         self.repo_pohon.create(self.pohon)
         self.repo_pohon.delete("tidak-ada")
         self.assertEqual(len(self.repo_pohon.read_all()), 1)
@@ -540,6 +637,23 @@ class TestRepoLanjutan(DasarRepo):
             with self.assertRaises(sqlite3.IntegrityError, msg=type(repo).__name__):
                 repo.delete(id_objek)
             self.assertIsNotNone(repo.read(id_objek), type(repo).__name__)
+
+    def test_is_used(self):
+        self.simpan_induk()
+        d24 = Varietas("D24", self.jenis)
+        self.repo_varietas.create(d24)
+        self.assertTrue(self.repo_varietas.is_varietas_used(self.varietas.get_id_varietas()))
+        self.assertFalse(self.repo_varietas.is_varietas_used(d24.get_id_varietas()))
+        self.assertFalse(self.repo_pohon.is_pohon_used(self.pohon.get_id_pohon()))
+        self.repo_buah.create(self.buah_baru())
+        self.assertTrue(self.repo_pohon.is_pohon_used(self.pohon.get_id_pohon()))
+
+    def test_is_pohon_used_karena_stok(self):
+        self.simpan_induk()
+        periode = PeriodePanen("A", "2026-01-01", None)
+        self.repo_periode.create(periode)
+        self.repo_stok.create(StokPohon(self.pohon, periode, 5, "2026-01-02"))
+        self.assertTrue(self.repo_pohon.is_pohon_used(self.pohon.get_id_pohon()))
 
     # ---- perbarui ----
 
@@ -565,11 +679,17 @@ class TestRepoLanjutan(DasarRepo):
         self.assertEqual(hasil.get_jenis().get_id_jenis(), mangga.get_id_jenis())
         self.assertEqual(hasil.get_deskripsi(), "Harum")
 
-    def test_update_pohon(self):
+    def test_update_pohon_termasuk_pindah_varietas(self):
+        self.simpan_varietas()
         self.repo_pohon.create(self.pohon)
+        montong = Varietas("Montong", self.jenis)
+        self.repo_varietas.create(montong)
         self.pohon.set_nomor_pohon(10)
+        self.pohon.set_varietas(montong)
         self.repo_pohon.update(self.pohon)
-        self.assertEqual(self.repo_pohon.read(self.pohon.get_id_pohon()).get_nomor_pohon(), 10)
+        hasil = self.repo_pohon.read(self.pohon.get_id_pohon())
+        self.assertEqual(hasil.get_nomor_pohon(), 10)
+        self.assertEqual(hasil.get_varietas().get_id_varietas(), montong.get_id_varietas())
 
     def test_update_keterangan_buah(self):
         self.repo_keterangan.create(self.baik)
@@ -584,13 +704,13 @@ class TestRepoLanjutan(DasarRepo):
         self.simpan_induk()
         buah = self.buah_baru()
         self.repo_buah.create(buah)
-        pohon_2, d24, busuk = Pohon(8), Varietas("D24", self.jenis), KeteranganBuah("Busuk")
-        self.repo_pohon.create(pohon_2)
+        d24, busuk = Varietas("D24", self.jenis), KeteranganBuah("Busuk")
+        pohon_2 = Pohon(8, d24)
         self.repo_varietas.create(d24)
+        self.repo_pohon.create(pohon_2)
         self.repo_keterangan.create(busuk)
 
         buah.set_pohon(pohon_2)
-        buah.set_varietas(d24)
         buah.set_keterangan(busuk)
         buah.set_bobot(2.5)
         buah.set_tanggal_panen("2026-02-01")
@@ -598,7 +718,7 @@ class TestRepoLanjutan(DasarRepo):
 
         hasil = self.repo_buah.read(buah.get_id_buah())
         self.assertEqual(hasil.get_pohon().get_id_pohon(), pohon_2.get_id_pohon())
-        self.assertEqual(hasil.get_varietas().get_id_varietas(), d24.get_id_varietas())
+        self.assertEqual(hasil.get_pohon().get_varietas().get_id_varietas(), d24.get_id_varietas())
         self.assertEqual(hasil.get_keterangan().get_id_keterangan(), busuk.get_id_keterangan())
         self.assertEqual(hasil.get_bobot(), 2.5)
         self.assertEqual(hasil.get_tanggal_panen(), "2026-02-01")
@@ -617,7 +737,8 @@ class TestRepoLanjutan(DasarRepo):
         self.assertFalse(hasil.is_active())
 
     def test_update_hanya_mengubah_id_yang_diminta(self):
-        pohon_8 = Pohon(8)
+        self.simpan_varietas()
+        pohon_8 = Pohon(8, self.varietas)
         self.repo_pohon.create(self.pohon)
         self.repo_pohon.create(pohon_8)
         self.pohon.set_nomor_pohon(10)
@@ -628,7 +749,7 @@ class TestRepoLanjutan(DasarRepo):
         self.simpan_induk()
         buah = self.buah_baru()
         self.repo_buah.create(buah)
-        pohon_8 = Pohon(8)
+        pohon_8 = Pohon(8, self.varietas)
         self.repo_pohon.create(pohon_8)
 
         pohon_8.set_nomor_pohon(7)
@@ -640,7 +761,7 @@ class TestRepoLanjutan(DasarRepo):
             self.repo_buah.update(buah)
 
         buah.set_bobot(1.0)
-        buah.set_pohon(Pohon(99))
+        buah.set_pohon(Pohon(99, self.varietas))
         with self.assertRaises(sqlite3.IntegrityError, msg="pohon belum disimpan"):
             self.repo_buah.update(buah)
 
@@ -650,6 +771,98 @@ class TestRepoLanjutan(DasarRepo):
         b.set_tanggal_mulai("2026-03-01")
         with self.assertRaises(sqlite3.IntegrityError, msg="periode tumpang tindih"):
             self.repo_periode.update(b)
+
+
+
+class TestRepoStokPohon(DasarRepo):
+    def setUp(self):
+        super().setUp()
+        self.simpan_induk()
+        self.periode = PeriodePanen("Raya 2026", "2026-01-01", None)
+        self.repo_periode.create(self.periode)
+        self.stok = StokPohon(self.pohon, self.periode, 11, "2026-01-05")
+
+    def test_create_dan_read_beserta_relasi(self):
+        self.repo_stok.create(self.stok)
+        hasil = self.repo_stok.read(self.pohon.get_id_pohon(), self.periode.get_id_periode())
+        self.assertEqual(hasil.get_jumlah_buah(), 11)
+        self.assertEqual(hasil.get_tanggal_hitung(), "2026-01-05")
+        self.assertEqual(hasil.get_pohon().get_id_pohon(), self.pohon.get_id_pohon())
+        self.assertEqual(hasil.get_pohon().get_varietas().get_id_varietas(),
+                         self.varietas.get_id_varietas())
+        self.assertEqual(hasil.get_periode().get_id_periode(), self.periode.get_id_periode())
+
+    def test_read_yang_tidak_ada(self):
+        self.assertIsNone(self.repo_stok.read(self.pohon.get_id_pohon(), "tidak-ada"))
+        self.assertIsNone(self.repo_stok.read("tidak-ada", self.periode.get_id_periode()))
+
+    def test_stok_ganda_di_periode_sama_ditolak(self):
+        self.repo_stok.create(self.stok)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.repo_stok.create(StokPohon(self.pohon, self.periode, 3, "2026-01-06"))
+
+    def test_stok_ditolak_jika_data_tidak_valid(self):
+        kasus = {
+            "jumlah negatif": StokPohon(self.pohon, self.periode, -1, "2026-01-05"),
+            "tanggal tidak ada": StokPohon(self.pohon, self.periode, 1, "2026-02-30"),
+            "pohon belum disimpan": StokPohon(Pohon(99, self.varietas), self.periode, 1, "2026-01-05"),
+            "periode belum disimpan": StokPohon(
+                self.pohon, PeriodePanen("B", "2025-01-01", "2025-02-01"), 1, "2025-01-05"),
+        }
+        for nama, stok in kasus.items():
+            with self.assertRaises(sqlite3.IntegrityError, msg=nama):
+                self.repo_stok.create(stok)
+
+    def test_read_by_periode_urut_varietas_lalu_nomor(self):
+        montong = Varietas("Montong", self.jenis)
+        self.repo_varietas.create(montong)
+        pohon_montong, pohon_3 = Pohon(1, montong), Pohon(3, self.varietas)
+        self.repo_pohon.create(pohon_montong)
+        self.repo_pohon.create(pohon_3)
+        lama = PeriodePanen("Lama", "2025-01-01", "2025-03-31")
+        self.repo_periode.create(lama)
+        for pohon in (self.pohon, pohon_montong, pohon_3):
+            self.repo_stok.create(StokPohon(pohon, self.periode, 1, "2026-01-05"))
+        self.repo_stok.create(StokPohon(self.pohon, lama, 4, "2025-01-05"))
+
+        hasil = self.repo_stok.read_by_periode(self.periode.get_id_periode())
+        self.assertEqual(
+            [(s.get_pohon().get_varietas().get_nama_varietas(), s.get_pohon().get_nomor_pohon())
+             for s in hasil],
+            [("Montong", 1), ("Musang King", 3), ("Musang King", 7)])
+        self.assertEqual(len(self.repo_stok.read_by_periode(lama.get_id_periode())), 1)
+        self.assertEqual(self.repo_stok.read_by_periode("tidak-ada"), [])
+
+    def test_update(self):
+        self.repo_stok.create(self.stok)
+        self.stok.set_jumlah_buah(20)
+        self.stok.set_tanggal_hitung("2026-01-07")
+        self.repo_stok.update(self.stok)
+        hasil = self.repo_stok.read(self.pohon.get_id_pohon(), self.periode.get_id_periode())
+        self.assertEqual(hasil.get_jumlah_buah(), 20)
+        self.assertEqual(hasil.get_tanggal_hitung(), "2026-01-07")
+
+    def test_update_tetap_mengikuti_aturan_skema(self):
+        self.repo_stok.create(self.stok)
+        self.stok.set_jumlah_buah(-5)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.repo_stok.update(self.stok)
+
+    def test_delete(self):
+        self.repo_stok.create(self.stok)
+        self.repo_stok.delete(self.pohon.get_id_pohon(), "tidak-ada")
+        self.assertIsNotNone(
+            self.repo_stok.read(self.pohon.get_id_pohon(), self.periode.get_id_periode()))
+        self.repo_stok.delete(self.pohon.get_id_pohon(), self.periode.get_id_periode())
+        self.assertIsNone(
+            self.repo_stok.read(self.pohon.get_id_pohon(), self.periode.get_id_periode()))
+
+    def test_hapus_pohon_atau_periode_yang_punya_stok_ditolak(self):
+        self.repo_stok.create(self.stok)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.repo_pohon.delete(self.pohon.get_id_pohon())
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.repo_periode.delete(self.periode.get_id_periode())
 
 
 if __name__ == "__main__":

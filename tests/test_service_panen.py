@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pencatatan_kebun.db.koneksi import buka_koneksi
-from pencatatan_kebun.models import KeteranganBuah, PeriodePanen, Pohon, Varietas
+from pencatatan_kebun.models import KeteranganBuah, PeriodePanen, Pohon
 from pencatatan_kebun.repo.periode_panen import RepoPeriodePanen
 from pencatatan_kebun.services.exception import (
     BobotTidakValidException,
@@ -28,12 +28,12 @@ class DasarPanen(unittest.TestCase):
 
         self.durian = self.master.tambah_jenis("Durian")
         self.musang_king = self.master.tambah_varietas(self.durian, "Musang King")
-        self.pohon_7 = self.master.tambah_pohon(7)
-        self.pohon_2 = self.master.tambah_pohon(2)
+        self.pohon_7 = self.master.tambah_pohon(self.musang_king, 7)
+        self.pohon_2 = self.master.tambah_pohon(self.musang_king, 2)
         self.baik = self.master.tambah_keterangan("Baik")
 
     def catat(self, **ubah):
-        data = dict(pohon=self.pohon_7, varietas=self.musang_king, keterangan_buah=self.baik,
+        data = dict(pohon=self.pohon_7, keterangan_buah=self.baik,
                     bobot=1.25, tanggal_panen="2025-01-15")
         data.update(ubah)
         return self.service.catat_buah(**data)
@@ -49,8 +49,8 @@ class TestCatatBuah(DasarPanen):
         self.assertTersimpan()
         hasil = self.service.repo_buah.read(buah.get_id_buah())
         self.assertEqual(hasil.get_pohon().get_nomor_pohon(), 7)
-        self.assertEqual(hasil.get_varietas().get_nama_varietas(), "Musang King")
-        self.assertEqual(hasil.get_varietas().get_jenis().get_nama_jenis(), "Durian")
+        self.assertEqual(hasil.get_pohon().get_varietas().get_nama_varietas(), "Musang King")
+        self.assertEqual(hasil.get_pohon().get_varietas().get_jenis().get_nama_jenis(), "Durian")
         self.assertEqual(hasil.get_keterangan().get_nama_keterangan(), "Baik")
         self.assertEqual(hasil.get_bobot(), 1.25)
         self.assertEqual(hasil.get_tanggal_panen(), "2025-01-15")
@@ -82,8 +82,7 @@ class TestCatatBuah(DasarPanen):
 
     def test_data_master_tidak_ada_di_database_ditolak(self):
         kasus = {
-            "pohon": dict(pohon=Pohon(99)),
-            "varietas": dict(varietas=Varietas("Bawor", self.durian)),
+            "pohon": dict(pohon=Pohon(99, self.musang_king)),
             "keterangan_buah": dict(keterangan_buah=KeteranganBuah("Busuk")),
         }
         for kolom, ubah in kasus.items():
@@ -98,7 +97,7 @@ class TestUbahDanHapusBuah(DasarPanen):
     def test_ubah(self):
         buah = self.catat()
         busuk = self.master.tambah_keterangan("Busuk")
-        self.service.ubah_catatan_buah(buah.get_id_buah(), self.pohon_2, self.musang_king,
+        self.service.ubah_catatan_buah(buah.get_id_buah(), self.pohon_2,
                                        busuk, 2.5, "2025-01-16")
         self.assertTersimpan()
         hasil = self.service.repo_buah.read(buah.get_id_buah())
@@ -107,16 +106,25 @@ class TestUbahDanHapusBuah(DasarPanen):
         self.assertEqual(hasil.get_bobot(), 2.5)
         self.assertEqual(hasil.get_tanggal_panen(), "2025-01-16")
 
+    def test_ubah_pindah_ke_pohon_varietas_lain(self):
+        buah = self.catat()
+        montong = self.master.tambah_varietas(self.durian, "Montong")
+        pohon_montong = self.master.tambah_pohon(montong, 7)
+        self.service.ubah_catatan_buah(buah.get_id_buah(), pohon_montong,
+                                       self.baik, 1.25, "2025-01-15")
+        hasil = self.service.repo_buah.read(buah.get_id_buah())
+        self.assertEqual(hasil.get_pohon().get_varietas().get_nama_varietas(), "Montong")
+
     def test_ubah_isian_tidak_valid_ditolak(self):
         buah = self.catat()
         with self.assertRaises(BobotTidakValidException):
-            self.service.ubah_catatan_buah(buah.get_id_buah(), self.pohon_7, self.musang_king,
+            self.service.ubah_catatan_buah(buah.get_id_buah(), self.pohon_7,
                                            self.baik, 0, "2025-01-15")
         self.assertEqual(self.service.repo_buah.read(buah.get_id_buah()).get_bobot(), 1.25)
 
     def test_ubah_id_tidak_ada_ditolak(self):
         with self.assertRaises(DataTidakDitemukanException):
-            self.service.ubah_catatan_buah("tidak-ada", self.pohon_7, self.musang_king,
+            self.service.ubah_catatan_buah("tidak-ada", self.pohon_7,
                                            self.baik, 1.0, "2025-01-15")
 
     def test_hapus(self):

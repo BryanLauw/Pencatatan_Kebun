@@ -1,4 +1,5 @@
--- Semua id berupa TEXT (UUID) yang dibuat oleh aplikasi.
+-- Semua id berupa TEXT (UUID) yang dibuat oleh aplikasi, kecuali stok_pohon
+-- yang memakai kunci komposit (id_pohon, id_periode).
 -- Semua tanggal disimpan sebagai teks format YYYY-MM-DD (urutan teks = urutan waktu).
 -- Tampilan DD-MM-YYYY diatur di lapisan ui.
 --
@@ -10,8 +11,8 @@
 -- Nama dengan COLLATE NOCASE unik tanpa membedakan huruf besar/kecil
 -- ("Durian" dan "durian" dianggap sama).
 --
--- ON DELETE RESTRICT: data master (jenis, varietas, pohon, keterangan) tidak
--- bisa dihapus selama masih dipakai data lain.
+-- ON DELETE RESTRICT: data master (jenis, varietas, pohon, keterangan) dan
+-- periode tidak bisa dihapus selama masih dipakai data lain.
 
 CREATE TABLE IF NOT EXISTS jenis_tanaman (
     id_jenis TEXT NOT NULL PRIMARY KEY,
@@ -35,11 +36,16 @@ CREATE TABLE IF NOT EXISTS varietas (
     CHECK (length(trim(nama_varietas)) > 0)
 );
 
--- Pohon tidak terhubung ke jenis: satu pohon boleh menghasilkan buah dari
--- varietas apa pun (mis. lewat stek). Jenis buah diketahui lewat varietasnya.
+-- Satu pohon punya satu varietas; jenisnya diketahui lewat varietas.
+-- Nomor pohon hanya unik di dalam satu varietas (mis. Bawor 1 dan Montong 1).
 CREATE TABLE IF NOT EXISTS pohon (
     id_pohon TEXT NOT NULL PRIMARY KEY,
-    nomor_pohon INTEGER NOT NULL UNIQUE
+    id_varietas TEXT NOT NULL,
+    nomor_pohon INTEGER NOT NULL,
+
+    FOREIGN KEY (id_varietas) REFERENCES varietas(id_varietas) ON DELETE RESTRICT,
+    UNIQUE (id_varietas, nomor_pohon),
+    CHECK (nomor_pohon > 0)
 );
 
 CREATE TABLE IF NOT EXISTS keterangan_buah (
@@ -51,17 +57,16 @@ CREATE TABLE IF NOT EXISTS keterangan_buah (
     CHECK (length(trim(nama_keterangan)) > 0)
 );
 
--- Satu baris = satu buah hasil panen. bobot dalam kg.
+-- Satu baris = satu buah hasil panen (termasuk buah gugur, dibedakan lewat
+-- keterangan). bobot dalam kg. Varietas buah diketahui lewat pohonnya.
 CREATE TABLE IF NOT EXISTS buah (
     id_buah TEXT NOT NULL PRIMARY KEY,
     id_pohon TEXT NOT NULL,
-    id_varietas TEXT NOT NULL,
     tanggal_panen DATE NOT NULL,
     id_keterangan TEXT NOT NULL,
     bobot DECIMAL(10, 2) NOT NULL,
 
     FOREIGN KEY (id_pohon) REFERENCES pohon(id_pohon) ON DELETE RESTRICT,
-    FOREIGN KEY (id_varietas) REFERENCES varietas(id_varietas) ON DELETE RESTRICT,
     FOREIGN KEY (id_keterangan) REFERENCES keterangan_buah(id_keterangan) ON DELETE RESTRICT,
     CHECK (bobot > 0),
     CHECK (tanggal_panen IS date(tanggal_panen, '+0 days'))
@@ -128,3 +133,19 @@ BEGIN
     SET tanggal_selesai = date(NEW.tanggal_mulai, '-1 day')
     WHERE tanggal_selesai IS NULL AND tanggal_mulai < NEW.tanggal_mulai;
 END;
+
+-- Jumlah buah di satu pohon pada satu periode, dihitung pada tanggal_hitung.
+-- Sisa buah tidak disimpan: jumlah_buah dikurangi jumlah catatan buah pohon
+-- itu di dalam rentang tanggal periode.
+CREATE TABLE IF NOT EXISTS stok_pohon (
+    id_pohon TEXT NOT NULL,
+    id_periode TEXT NOT NULL,
+    jumlah_buah INTEGER NOT NULL,
+    tanggal_hitung DATE NOT NULL,
+
+    PRIMARY KEY (id_pohon, id_periode),
+    FOREIGN KEY (id_pohon) REFERENCES pohon(id_pohon) ON DELETE RESTRICT,
+    FOREIGN KEY (id_periode) REFERENCES periode_panen(id_periode) ON DELETE RESTRICT,
+    CHECK (jumlah_buah >= 0),
+    CHECK (tanggal_hitung IS date(tanggal_hitung, '+0 days'))
+);

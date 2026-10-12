@@ -5,8 +5,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pencatatan_kebun.db.koneksi import buka_koneksi
-from pencatatan_kebun.models import Buah, JenisTanaman
+from pencatatan_kebun.models import Buah, JenisTanaman, PeriodePanen, StokPohon, Varietas
 from pencatatan_kebun.repo.buah import RepoBuah
+from pencatatan_kebun.repo.periode_panen import RepoPeriodePanen
+from pencatatan_kebun.repo.stok_pohon import RepoStokPohon
 from pencatatan_kebun.services.exception import (
     DataMasihDipakaiException,
     DataSudahAdaException,
@@ -25,10 +27,13 @@ class DasarMaster(unittest.TestCase):
         self.addCleanup(self.conn.close)
         self.service = MasterService(self.conn)
 
-    def catat_buah(self, pohon, varietas, keterangan):
+    def catat_buah(self, pohon, keterangan):
         """Simpan satu buah lewat repo agar data master jadi 'dipakai'."""
-        RepoBuah(self.conn).create(Buah(pohon, varietas, 1.5, keterangan, "2025-01-15"))
+        RepoBuah(self.conn).create(Buah(pohon, 1.5, keterangan, "2025-01-15"))
         self.conn.commit()
+
+    def varietas_baru(self, nama_jenis="Durian", nama_varietas="Musang King"):
+        return self.service.tambah_varietas(self.service.tambah_jenis(nama_jenis), nama_varietas)
 
     def assertTersimpan(self):
         """Service harus commit sendiri: tidak ada transaksi yang tertinggal."""
@@ -178,9 +183,9 @@ class TestVarietas(DasarMaster):
         self.assertTersimpan()
         self.assertIsNone(self.service.repo_varietas.read(varietas.get_id_varietas()))
 
-    def test_hapus_varietas_yang_dipakai_buah_ditolak(self):
+    def test_hapus_varietas_yang_dipakai_pohon_ditolak(self):
         varietas = self.service.tambah_varietas(self.durian, "Musang King")
-        self.catat_buah(self.service.tambah_pohon(1), varietas, self.service.tambah_keterangan("Baik"))
+        self.service.tambah_pohon(varietas, 1)
         with self.assertRaises(DataMasihDipakaiException) as cm:
             self.service.hapus_varietas(varietas.get_id_varietas())
         self.assertIn("Musang King", cm.exception.pesan)
@@ -206,66 +211,125 @@ class TestVarietas(DasarMaster):
 
 
 class TestPohon(DasarMaster):
-    def test_tambah_tersimpan(self):
-        pohon = self.service.tambah_pohon(7)
+    def setUp(self):
+        super().setUp()
+        self.durian = self.service.tambah_jenis("Durian")
+        self.musang_king = self.service.tambah_varietas(self.durian, "Musang King")
+        self.montong = self.service.tambah_varietas(self.durian, "Montong")
+
+    def test_tambah_tersimpan_beserta_varietas(self):
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
         self.assertTersimpan()
-        self.assertEqual(self.service.repo_pohon.read(pohon.get_id_pohon()).get_nomor_pohon(), 7)
+        hasil = self.service.repo_pohon.read(pohon.get_id_pohon())
+        self.assertEqual(hasil.get_nomor_pohon(), 7)
+        self.assertEqual(hasil.get_varietas().get_id_varietas(), self.musang_king.get_id_varietas())
+        self.assertEqual(hasil.get_varietas().get_jenis().get_nama_jenis(), "Durian")
 
     def test_nomor_tidak_valid_ditolak(self):
         for nomor in (0, -1, 1.5, "7", None, True):
             with self.subTest(nomor=nomor):
                 with self.assertRaises(NomorPohonTidakValidException) as cm:
-                    self.service.tambah_pohon(nomor)
+                    self.service.tambah_pohon(self.musang_king, nomor)
                 self.assertEqual(cm.exception.kolom, "nomor_pohon")
 
-    def test_nomor_ganda_ditolak(self):
-        self.service.tambah_pohon(7)
+    def test_varietas_tidak_ada_di_database_ditolak(self):
+        with self.assertRaises(DataTidakDitemukanException) as cm:
+            self.service.tambah_pohon(Varietas("Bawor", self.durian), 1)
+        self.assertEqual(cm.exception.kolom, "id_varietas")
+        self.assertEqual(self.service.daftar_pohon(), [])
+
+    def test_nomor_ganda_di_varietas_sama_ditolak(self):
+        self.service.tambah_pohon(self.musang_king, 7)
         with self.assertRaises(DataSudahAdaException) as cm:
-            self.service.tambah_pohon(7)
+            self.service.tambah_pohon(self.musang_king, 7)
         self.assertEqual(cm.exception.kolom, "nomor_pohon")
+        self.assertIn("Musang King", cm.exception.pesan)
+
+    def test_nomor_sama_di_varietas_lain_boleh(self):
+        self.service.tambah_pohon(self.musang_king, 7)
+        self.service.tambah_pohon(self.montong, 7)
+        self.assertEqual(len(self.service.daftar_pohon()), 2)
 
     def test_ubah_dengan_nomor_sendiri(self):
-        pohon = self.service.tambah_pohon(7)
-        self.service.ubah_pohon(pohon.get_id_pohon(), 7)
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
+        self.service.ubah_pohon(pohon.get_id_pohon(), self.musang_king, 7)
         self.assertTersimpan()
 
     def test_ubah_nomor(self):
-        pohon = self.service.tambah_pohon(7)
-        self.service.ubah_pohon(pohon.get_id_pohon(), 8)
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
+        self.service.ubah_pohon(pohon.get_id_pohon(), self.musang_king, 8)
         self.assertEqual(self.service.repo_pohon.read(pohon.get_id_pohon()).get_nomor_pohon(), 8)
 
+    def test_ubah_pindah_varietas(self):
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
+        self.service.ubah_pohon(pohon.get_id_pohon(), self.montong, 7)
+        hasil = self.service.repo_pohon.read(pohon.get_id_pohon())
+        self.assertEqual(hasil.get_varietas().get_id_varietas(), self.montong.get_id_varietas())
+
     def test_ubah_ke_nomor_pohon_lain_ditolak(self):
-        self.service.tambah_pohon(7)
-        pohon = self.service.tambah_pohon(8)
+        self.service.tambah_pohon(self.musang_king, 7)
+        pohon = self.service.tambah_pohon(self.musang_king, 8)
         with self.assertRaises(DataSudahAdaException):
-            self.service.ubah_pohon(pohon.get_id_pohon(), 7)
+            self.service.ubah_pohon(pohon.get_id_pohon(), self.musang_king, 7)
+
+    def test_ubah_pindah_ke_varietas_yang_sudah_punya_nomor_itu_ditolak(self):
+        self.service.tambah_pohon(self.montong, 7)
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
+        with self.assertRaises(DataSudahAdaException):
+            self.service.ubah_pohon(pohon.get_id_pohon(), self.montong, 7)
+
+    def test_ubah_ke_varietas_yang_tidak_ada_ditolak(self):
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
+        with self.assertRaises(DataTidakDitemukanException) as cm:
+            self.service.ubah_pohon(pohon.get_id_pohon(), Varietas("Bawor", self.durian), 7)
+        self.assertEqual(cm.exception.kolom, "id_varietas")
 
     def test_ubah_id_tidak_ada_dicek_sebelum_nomor(self):
         with self.assertRaises(DataTidakDitemukanException):
-            self.service.ubah_pohon("tidak-ada", 0)
+            self.service.ubah_pohon("tidak-ada", self.musang_king, 0)
 
     def test_hapus(self):
-        pohon = self.service.tambah_pohon(7)
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
         self.service.hapus_pohon(pohon.get_id_pohon())
         self.assertTersimpan()
         self.assertIsNone(self.service.repo_pohon.read(pohon.get_id_pohon()))
 
     def test_hapus_pohon_yang_dipakai_buah_ditolak(self):
-        pohon = self.service.tambah_pohon(7)
-        varietas = self.service.tambah_varietas(self.service.tambah_jenis("Durian"), "Musang King")
-        self.catat_buah(pohon, varietas, self.service.tambah_keterangan("Baik"))
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
+        self.catat_buah(pohon, self.service.tambah_keterangan("Baik"))
         with self.assertRaises(DataMasihDipakaiException) as cm:
             self.service.hapus_pohon(pohon.get_id_pohon())
-        self.assertIn("7", cm.exception.pesan)
+        self.assertIn("Musang King 7", cm.exception.pesan)
+
+    def test_hapus_pohon_yang_punya_stok_ditolak(self):
+        pohon = self.service.tambah_pohon(self.musang_king, 7)
+        periode = PeriodePanen("Raya 2025", "2025-01-01")
+        RepoPeriodePanen(self.conn).create(periode)
+        RepoStokPohon(self.conn).create(StokPohon(pohon, periode, 5, "2025-01-02"))
+        self.conn.commit()
+        with self.assertRaises(DataMasihDipakaiException):
+            self.service.hapus_pohon(pohon.get_id_pohon())
 
     def test_hapus_id_tidak_ada_ditolak(self):
         with self.assertRaises(DataTidakDitemukanException):
             self.service.hapus_pohon("tidak-ada")
 
-    def test_daftar_urut_nomor(self):
+    def test_daftar_per_varietas_urut_nomor(self):
         for nomor in (10, 2, 7):
-            self.service.tambah_pohon(nomor)
-        self.assertEqual([p.get_nomor_pohon() for p in self.service.daftar_pohon()], [2, 7, 10])
+            self.service.tambah_pohon(self.musang_king, nomor)
+        self.service.tambah_pohon(self.montong, 1)
+        hasil = self.service.daftar_pohon(self.musang_king)
+        self.assertEqual([p.get_nomor_pohon() for p in hasil], [2, 7, 10])
+        self.assertEqual(hasil[0].get_varietas().get_nama_varietas(), "Musang King")
+
+    def test_daftar_semua_urut_varietas_lalu_nomor(self):
+        self.service.tambah_pohon(self.musang_king, 2)
+        self.service.tambah_pohon(self.montong, 5)
+        self.service.tambah_pohon(self.montong, 1)
+        self.assertEqual(
+            [(p.get_varietas().get_nama_varietas(), p.get_nomor_pohon())
+             for p in self.service.daftar_pohon()],
+            [("Montong", 1), ("Montong", 5), ("Musang King", 2)])
 
 
 class TestKeteranganBuah(DasarMaster):
@@ -314,8 +378,7 @@ class TestKeteranganBuah(DasarMaster):
 
     def test_hapus_keterangan_yang_dipakai_buah_ditolak(self):
         keterangan = self.service.tambah_keterangan("Baik")
-        varietas = self.service.tambah_varietas(self.service.tambah_jenis("Durian"), "Musang King")
-        self.catat_buah(self.service.tambah_pohon(1), varietas, keterangan)
+        self.catat_buah(self.service.tambah_pohon(self.varietas_baru(), 1), keterangan)
         with self.assertRaises(DataMasihDipakaiException) as cm:
             self.service.hapus_keterangan(keterangan.get_id_keterangan())
         self.assertIn("Baik", cm.exception.pesan)

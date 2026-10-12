@@ -105,6 +105,18 @@ class NomorPohonTidakValidException(InputTidakValidException):
         )
 
 
+class JumlahBuahTidakValidException(InputTidakValidException):
+    """Jumlah buah di stok pohon bukan bilangan bulat 0 atau lebih, atau lebih
+    sedikit dari buah yang sudah tercatat di periode itu.
+
+    Args:
+        alasan: Kenapa jumlah ditolak. Ditambahkan di belakang pesan.
+    """
+
+    def __init__(self, alasan: str = "Jumlah buah harus bilangan bulat 0 atau lebih"):
+        super().__init__(f"Jumlah buah tidak valid! {alasan}", kolom="jumlah_buah")
+
+
 # ---- masalah dengan data di database ----
 
 class DataTidakDitemukanException(ServiceException):
@@ -123,8 +135,9 @@ class DataTidakDitemukanException(ServiceException):
 
 
 class DataSudahAdaException(ServiceException):
-    """Melanggar aturan unik, mis. nomor pohon, nama jenis, atau nama
-    keterangan sudah dipakai, atau nama varietas sudah ada di jenis yang sama
+    """Melanggar aturan unik, mis. nama jenis atau nama keterangan sudah
+    dipakai, nama varietas sudah ada di jenis yang sama, atau nomor pohon sudah
+    ada di varietas yang sama
     (sqlite3.IntegrityError "UNIQUE constraint failed").
 
     Args:
@@ -137,8 +150,9 @@ class DataSudahAdaException(ServiceException):
 
 
 class DataMasihDipakaiException(ServiceException):
-    """Tidak bisa dihapus karena masih dipakai data lain, mis. varietas atau
-    pohon yang sudah punya catatan buah, atau jenis yang masih punya varietas
+    """Tidak bisa dihapus karena masih dipakai data lain, mis. pohon yang sudah
+    punya catatan buah atau stok, varietas yang masih punya pohon, jenis yang
+    masih punya varietas, atau periode yang sudah punya stok pohon
     (delete ditolak foreign key, sqlite3.IntegrityError "FOREIGN KEY constraint failed").
 
     Args:

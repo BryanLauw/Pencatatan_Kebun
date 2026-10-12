@@ -6,7 +6,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from pencatatan_kebun.models import Buah, JenisTanaman, KeteranganBuah, PeriodePanen, Pohon, Varietas
+from pencatatan_kebun.models import (
+    Buah,
+    JenisTanaman,
+    KeteranganBuah,
+    PeriodePanen,
+    Pohon,
+    StokPohon,
+    Varietas,
+)
 
 
 class TestModels(unittest.TestCase):
@@ -17,12 +25,12 @@ class TestModels(unittest.TestCase):
         self.busuk = KeteranganBuah("Busuk", "Tidak layak jual", id_keterangan="busuk")
 
     def semua_objek_baru(self):
-        pohon = Pohon(1)
+        pohon = Pohon(1, self.varietas)
         return [
             (JenisTanaman("A"), "get_id_jenis"),
             (Varietas("A", self.jenis), "get_id_varietas"),
             (pohon, "get_id_pohon"),
-            (Buah(pohon, self.varietas, 1.0, self.baik, "2026-01-15"), "get_id_buah"),
+            (Buah(pohon, 1.0, self.baik, "2026-01-15"), "get_id_buah"),
             (PeriodePanen("A", "2026-01-01", "2026-02-01"), "get_id_periode"),
             (KeteranganBuah("A"), "get_id_keterangan"),
         ]
@@ -41,9 +49,9 @@ class TestModels(unittest.TestCase):
     def test_id_yang_diberikan_dipakai_apa_adanya(self):
         self.assertEqual(self.jenis.get_id_jenis(), "jenis-1")
         self.assertEqual(self.varietas.get_id_varietas(), "var-1")
-        self.assertEqual(Pohon(1, id_pohon="pohon-1").get_id_pohon(), "pohon-1")
-        pohon = Pohon(1)
-        buah = Buah(pohon, self.varietas, 1.0, self.baik, "2026-01-15", id_buah="buah-1")
+        self.assertEqual(Pohon(1, self.varietas, id_pohon="pohon-1").get_id_pohon(), "pohon-1")
+        pohon = Pohon(1, self.varietas)
+        buah = Buah(pohon, 1.0, self.baik, "2026-01-15", id_buah="buah-1")
         self.assertEqual(buah.get_id_buah(), "buah-1")
         self.assertEqual(
             PeriodePanen("A", "2026-01-01", "2026-02-01", id_periode="per-1").get_id_periode(),
@@ -80,12 +88,15 @@ class TestModels(unittest.TestCase):
         self.assertEqual(self.varietas.get_deskripsi(), "Harum")
 
     def test_pohon(self):
-        pohon = Pohon(7)
+        pohon = Pohon(7, self.varietas)
         self.assertEqual(pohon.get_nomor_pohon(), 7)
+        self.assertIs(pohon.get_varietas(), self.varietas)
         pohon.set_nomor_pohon(8)
+        d24 = Varietas("D24", self.jenis)
+        pohon.set_varietas(d24)
         self.assertEqual(pohon.get_nomor_pohon(), 8)
-        for atribut in ("get_jenis", "set_jenis", "get_varietas"):
-            self.assertFalse(hasattr(pohon, atribut), atribut)
+        self.assertIs(pohon.get_varietas(), d24)
+        self.assertIs(pohon.get_varietas().get_jenis(), self.jenis)
 
     def test_keterangan_buah(self):
         self.assertEqual(self.baik.get_id_keterangan(), "baik")
@@ -99,18 +110,16 @@ class TestModels(unittest.TestCase):
         self.assertEqual(self.baik.get_deskripsi(), "Mulus")
 
     def test_buah(self):
-        pohon = Pohon(7)
-        buah = Buah(pohon, self.varietas, 1.5, self.baik, "2026-01-15")
+        pohon = Pohon(7, self.varietas)
+        buah = Buah(pohon, 1.5, self.baik, "2026-01-15")
         self.assertIs(buah.get_pohon(), pohon)
-        self.assertIs(buah.get_varietas(), self.varietas)
+        self.assertIs(buah.get_pohon().get_varietas(), self.varietas)
+        self.assertFalse(hasattr(buah, "get_varietas"))
         self.assertEqual(buah.get_bobot(), 1.5)
         self.assertIs(buah.get_keterangan(), self.baik)
         self.assertEqual(buah.get_tanggal_panen(), "2026-01-15")
-        lain = Pohon(9)
-        d24 = Varietas("D24", self.jenis)
+        lain = Pohon(9, self.varietas)
         buah.set_pohon(lain)
-        buah.set_varietas(d24)
-        self.assertIs(buah.get_varietas(), d24)
         buah.set_bobot(2.0)
         buah.set_keterangan(self.busuk)
         buah.set_tanggal_panen("2026-02-01")
@@ -118,6 +127,24 @@ class TestModels(unittest.TestCase):
         self.assertEqual(buah.get_bobot(), 2.0)
         self.assertIs(buah.get_keterangan(), self.busuk)
         self.assertEqual(buah.get_tanggal_panen(), "2026-02-01")
+
+    def test_stok_pohon(self):
+        pohon = Pohon(7, self.varietas)
+        periode = PeriodePanen("Raya 2026", "2026-01-01")
+        stok = StokPohon(pohon, periode, 11, "2026-01-05")
+        self.assertIs(stok.get_pohon(), pohon)
+        self.assertIs(stok.get_periode(), periode)
+        self.assertEqual(stok.get_jumlah_buah(), 11)
+        self.assertEqual(stok.get_tanggal_hitung(), "2026-01-05")
+        stok.set_jumlah_buah(0)
+        stok.set_tanggal_hitung("2026-01-06")
+        self.assertEqual(stok.get_jumlah_buah(), 0)
+        self.assertEqual(stok.get_tanggal_hitung(), "2026-01-06")
+
+    def test_stok_pohon_kunci_tidak_punya_setter(self):
+        stok = StokPohon(Pohon(7, self.varietas), PeriodePanen("A", "2026-01-01"), 1, "2026-01-05")
+        for atribut in ("set_pohon", "set_periode", "get_id_stok"):
+            self.assertFalse(hasattr(stok, atribut), atribut)
 
     def test_periode_panen_belum_selesai(self):
         p = PeriodePanen("Raya 2026", "2026-01-01", None)

@@ -211,7 +211,7 @@ class MasterService:
 
         Raises:
             DataTidakDitemukanException: Varietas tidak ditemukan.
-            DataMasihDipakaiException: Varietas sudah dipakai catatan buah.
+            DataMasihDipakaiException: Varietas sudah dipakai pohon.
         """
         varietas = self.repo_varietas.read(id_varietas)
         if varietas is None:
@@ -237,63 +237,74 @@ class MasterService:
 
     # ---- pohon ----
 
-    def _cek_pohon(self, nomor_pohon: int, id_pohon: str | None = None) -> None:
-        """Cek nomor pohon sebelum tambah/ubah.
+    def _cek_pohon(self, nomor_pohon: int, varietas: Varietas, id_pohon: str | None = None) -> None:
+        """Cek nomor dan varietas pohon sebelum tambah/ubah.
 
         Args:
             nomor_pohon: Nomor pohon yang dicek.
+            varietas: Varietas pohon.
             id_pohon: Id pohon yang sedang diubah, khusus fungsi ubah.
 
         Raises:
             NomorPohonTidakValidException: Nomor bukan bilangan bulat positif.
-            DataSudahAdaException: Nomor sudah dipakai pohon lain.
+            DataTidakDitemukanException: Varietas tidak ditemukan di database.
+            DataSudahAdaException: Nomor sudah dipakai pohon lain di varietas ini.
         """
         if isinstance(nomor_pohon, bool) or not isinstance(nomor_pohon, int) or nomor_pohon <= 0:
             raise NomorPohonTidakValidException()
-        ada = self.repo_pohon.read_by_number(nomor_pohon)
+        if self.repo_varietas.read(varietas.get_id_varietas()) is None:
+            raise DataTidakDitemukanException(f"varietas {varietas.get_nama_varietas()}", kolom="id_varietas")
+        ada = self.repo_pohon.read_by_number(nomor_pohon, varietas)
         if ada is not None and ada.get_id_pohon() != id_pohon:
-            raise DataSudahAdaException(f"nomor pohon {nomor_pohon}", kolom="nomor_pohon")
+            raise DataSudahAdaException(
+                f"nomor pohon {nomor_pohon} di varietas {varietas.get_nama_varietas()}", kolom="nomor_pohon")
 
-    def tambah_pohon(self, nomor_pohon: int) -> Pohon:
-        """Daftarkan pohon baru.
+    def tambah_pohon(self, varietas: Varietas, nomor_pohon: int) -> Pohon:
+        """Daftarkan pohon baru pada satu varietas.
 
         Args:
-            nomor_pohon: Nomor pohon di kebun. Bilangan bulat positif, unik.
+            varietas: Objek Varietas pohon (dipilih dari dropdown).
+            nomor_pohon: Nomor pohon di kebun. Bilangan bulat positif, unik di
+                dalam varietas yang sama (boleh sama di varietas lain).
 
         Returns:
             Pohon yang tersimpan.
 
         Raises:
             NomorPohonTidakValidException: Nomor bukan bilangan bulat positif.
-            DataSudahAdaException: Nomor sudah dipakai.
+            DataTidakDitemukanException: Varietas sudah tidak ada di database.
+            DataSudahAdaException: Nomor sudah dipakai di varietas tersebut.
         """
-        self._cek_pohon(nomor_pohon)
+        self._cek_pohon(nomor_pohon, varietas)
 
-        pohon = Pohon(nomor_pohon)
+        pohon = Pohon(nomor_pohon, varietas)
         self.repo_pohon.create(pohon)
         self.conn.commit()
         return pohon
 
-    def ubah_pohon(self, id_pohon: str, nomor_pohon: int) -> Pohon:
-        """Ganti nomor pohon.
+    def ubah_pohon(self, id_pohon: str, varietas: Varietas, nomor_pohon: int) -> Pohon:
+        """Ganti nomor pohon, termasuk memindahkannya ke varietas lain.
 
         Args:
             id_pohon: Id pohon yang diubah.
-            nomor_pohon: Nomor baru. Bilangan bulat positif, unik.
+            varietas: Objek Varietas (baru atau tetap).
+            nomor_pohon: Nomor baru. Bilangan bulat positif, unik di dalam
+                varietasnya.
 
         Returns:
             Pohon setelah diubah.
 
         Raises:
-            DataTidakDitemukanException: Pohon tidak ditemukan.
+            DataTidakDitemukanException: Pohon tidak ditemukan, atau varietas
+                sudah tidak ada di database.
             NomorPohonTidakValidException: Nomor bukan bilangan bulat positif.
-            DataSudahAdaException: Nomor sudah dipakai pohon lain.
+            DataSudahAdaException: Nomor sudah dipakai pohon lain di varietas tujuan.
         """
         if self.repo_pohon.read(id_pohon) is None:
             raise DataTidakDitemukanException(f"pohon dengan id {id_pohon}", kolom="id_pohon")
-        self._cek_pohon(nomor_pohon, id_pohon=id_pohon)
+        self._cek_pohon(nomor_pohon, varietas, id_pohon=id_pohon)
 
-        pohon = Pohon(nomor_pohon, id_pohon=id_pohon)
+        pohon = Pohon(nomor_pohon, varietas, id_pohon=id_pohon)
         self.repo_pohon.update(pohon)
         self.conn.commit()
         return pohon
@@ -306,24 +317,31 @@ class MasterService:
 
         Raises:
             DataTidakDitemukanException: Pohon tidak ditemukan.
-            DataMasihDipakaiException: Pohon sudah punya catatan buah.
+            DataMasihDipakaiException: Pohon sudah punya catatan buah atau stok.
         """
         pohon = self.repo_pohon.read(id_pohon)
         if pohon is None:
             raise DataTidakDitemukanException(f"pohon dengan id {id_pohon}", kolom="id_pohon")
         if self.repo_pohon.is_pohon_used(id_pohon):
-            raise DataMasihDipakaiException(f"pohon {pohon.get_nomor_pohon()}", kolom="id_pohon")
+            raise DataMasihDipakaiException(
+                f"pohon {pohon.get_varietas().get_nama_varietas()} {pohon.get_nomor_pohon()}", kolom="id_pohon")
 
         self.repo_pohon.delete(id_pohon)
         self.conn.commit()
 
-    def daftar_pohon(self) -> list[Pohon]:
-        """Semua pohon.
+    def daftar_pohon(self, varietas: Varietas | None = None) -> list[Pohon]:
+        """Daftar pohon.
+
+        Args:
+            varietas: Jika diisi, hanya pohon dari varietas ini (mis. untuk
+                mengisi dropdown pohon setelah pengguna memilih varietas di
+                form panen). Jika None, semua pohon.
 
         Returns:
-            Daftar Pohon, urut berdasarkan nomor.
+            Daftar Pohon. Untuk satu varietas urut berdasarkan nomor; untuk
+            semua pohon urut berdasarkan jenis, varietas, lalu nomor.
         """
-        return self.repo_pohon.read_all()
+        return self.repo_pohon.read_by_varietas(varietas)
 
     # ---- keterangan buah ----
 

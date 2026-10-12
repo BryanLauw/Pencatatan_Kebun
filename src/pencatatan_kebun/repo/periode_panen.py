@@ -1,5 +1,4 @@
 import sqlite3
-from typing import Optional
 
 from pencatatan_kebun.models import PeriodePanen
 
@@ -39,7 +38,7 @@ class RepoPeriodePanen:
             "INSERT INTO periode_panen (id_periode, nama_periode, tanggal_mulai, tanggal_selesai, deskripsi) VALUES (?, ?, ?, ?, ?)",
             (periode_panen.get_id_periode(), periode_panen.get_nama(), periode_panen.get_tanggal_mulai(), periode_panen.get_tanggal_selesai(), periode_panen.get_deskripsi()))
 
-    def read(self, id_periode: str) -> Optional[PeriodePanen]:
+    def read(self, id_periode: str) -> PeriodePanen | None:
         """Ambil satu periode berdasarkan id.
 
         Args:
@@ -81,6 +80,29 @@ class RepoPeriodePanen:
             for baris in baris_list
         ]
 
+    def read_by_name(self, nama_periode: str) -> PeriodePanen | None:
+        """Ambil satu periode berdasarkan nama.
+
+        Args:
+            nama_periode: Nama periode yang dicari.
+
+        Returns:
+            PeriodePanen, atau None jika tidak ada.
+        """
+        baris = self.conn.execute(
+            "SELECT id_periode, nama_periode, tanggal_mulai, tanggal_selesai, deskripsi FROM periode_panen WHERE nama_periode = ?",
+            (nama_periode,)).fetchone()
+        if baris is None:
+            return None
+        
+        return PeriodePanen(
+            baris["nama_periode"],
+            baris["tanggal_mulai"],
+            baris["tanggal_selesai"],
+            baris["deskripsi"],
+            id_periode=baris["id_periode"]
+        )
+
     def read_by_range(self, tanggal_mulai: str, tanggal_selesai: str) -> list[PeriodePanen]:
         """Ambil periode yang bersinggungan dengan rentang tanggal.
 
@@ -111,6 +133,58 @@ class RepoPeriodePanen:
             )
             for baris in baris_list
         ]
+
+    def read_by_date(self, tanggal: str) -> PeriodePanen | None:
+        """Ambil periode yang bersinggungan dengan rentang tanggal.
+                
+        Mencari satu periode yang rentang tanggal mulai dan tanggal selesainya
+        mencakup tanggal. Jika periode aktif, maka diambil periode aktif tersebut.
+
+        Returns:
+            PeriodePanen yang aktif, None jika tidak ada.
+        """
+        baris = self.conn.execute(
+            "SELECT id_periode, nama_periode, tanggal_mulai, tanggal_selesai, deskripsi FROM periode_panen "
+            "WHERE tanggal_mulai <= ? AND COALESCE(tanggal_selesai, '9999-12-31') >= ? "
+            "ORDER BY tanggal_mulai DESC "
+            "LIMIT 1",
+            (tanggal, tanggal)).fetchone()
+        if baris is None:
+            return None
+        
+        return PeriodePanen(
+            baris["nama_periode"],
+            baris["tanggal_mulai"],
+            baris["tanggal_selesai"],
+            baris["deskripsi"],
+            id_periode=baris["id_periode"]
+        )
+
+    def read_active_period(self) -> PeriodePanen | None:
+        """Ambil periode aktif.
+        
+        Mengambil periode aktif terbaru.
+
+        Returns:
+            PeriodePanen yang aktif, None jika tidak ada.
+        """
+        baris = self.conn.execute(
+            "SELECT id_periode, nama_periode, tanggal_mulai, tanggal_selesai, deskripsi "
+            "FROM periode_panen "
+            "WHERE tanggal_selesai IS NULL "
+            "ORDER BY tanggal_mulai DESC "
+            "LIMIT 1",
+            ).fetchone()
+        if baris is None:
+            return None
+        
+        return PeriodePanen(
+            baris["nama_periode"],
+            baris["tanggal_mulai"],
+            baris["tanggal_selesai"],
+            baris["deskripsi"],
+            id_periode=baris["id_periode"]
+        )
 
     def delete(self, id_periode: str) -> None:
         """Hapus periode. Tidak error jika id tidak ada.

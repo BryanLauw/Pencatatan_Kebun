@@ -1,6 +1,3 @@
-from typing import Optional
-
-
 class ServiceException(Exception):
     """Induk semua kesalahan service. Pesannya boleh langsung ditampilkan ke pengguna.
 
@@ -32,7 +29,7 @@ class ServiceException(Exception):
 
     pesan_bawaan = "Terjadi kesalahan"
 
-    def __init__(self, pesan: Optional[str] = None, kolom: Optional[str] = None):
+    def __init__(self, pesan: str | None = None, kolom: str | None = None):
         self.pesan = pesan or self.pesan_bawaan
         self.kolom = kolom
         super().__init__(self.pesan)
@@ -130,7 +127,7 @@ class DataTidakDitemukanException(ServiceException):
         kolom: Isian terkait di form, jika ada.
     """
 
-    def __init__(self, nama_data: str, kolom: Optional[str] = None):
+    def __init__(self, nama_data: str, kolom: str | None = None):
         super().__init__(f"Data {nama_data} tidak ditemukan!", kolom=kolom)
 
 
@@ -145,7 +142,7 @@ class DataSudahAdaException(ServiceException):
         kolom: Isian terkait di form, mis. "nomor_pohon".
     """
 
-    def __init__(self, nama_data: str, kolom: Optional[str] = None):
+    def __init__(self, nama_data: str, kolom: str | None = None):
         super().__init__(f"Data {nama_data} sudah ada!", kolom=kolom)
 
 
@@ -160,7 +157,7 @@ class DataMasihDipakaiException(ServiceException):
         kolom: Isian terkait di form, jika ada.
     """
 
-    def __init__(self, nama_data: str, kolom: Optional[str] = None):
+    def __init__(self, nama_data: str, kolom: str | None = None):
         super().__init__(f"Data {nama_data} masih dipakai!", kolom=kolom)
 
 
@@ -175,7 +172,7 @@ class PeriodeBertumpukException(ServiceException):
         kolom: Isian terkait di form, mis. "tanggal_mulai".
     """
 
-    def __init__(self, nama_periode: str, nama_periode_lain: Optional[str] = None, kolom: Optional[str] = None):
+    def __init__(self, nama_periode: str, nama_periode_lain: str | None = None, kolom: str | None = None):
         lain = " dengan periode panen" + (f" {nama_periode_lain}" if nama_periode_lain else " lain")
         super().__init__(f"Periode panen {nama_periode} bertumpuk{lain}!", kolom=kolom)
 

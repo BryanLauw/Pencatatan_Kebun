@@ -185,6 +185,59 @@ class RepoBuah:
             (id_pohon, mulai, selesai)).fetchone()
         return baris["jumlah"]
 
+    def summarize_by_varietas_keterangan(self, id_jenis: str, mulai: str, selesai: str) -> list[dict]:
+        """Ringkas buah satu jenis per pasangan varietas x keterangan, dalam
+        rentang tanggal panen (inklusif).
+
+        Args:
+            id_jenis: Id jenis tanaman.
+            mulai: Tanggal mulai format YYYY-MM-DD.
+            selesai: Tanggal selesai format YYYY-MM-DD.
+
+        Returns:
+            Satu dict per pasangan yang punya buah:
+            {"id_varietas", "nama_varietas", "nama_keterangan", "jumlah_buah",
+            "total_bobot", "bobot_min", "bobot_max"}, urut berdasarkan nama
+            varietas lalu nama keterangan. Tanpa buah menghasilkan [].
+        """
+        baris_list = self.conn.execute(
+            "SELECT v.id_varietas, v.nama_varietas, k.nama_keterangan, "
+            "COUNT(*) AS jumlah_buah, SUM(b.bobot) AS total_bobot, "
+            "MIN(b.bobot) AS bobot_min, MAX(b.bobot) AS bobot_max FROM buah b "
+            "JOIN pohon p ON p.id_pohon = b.id_pohon "
+            "JOIN varietas v ON v.id_varietas = p.id_varietas "
+            "JOIN keterangan_buah k ON k.id_keterangan = b.id_keterangan "
+            "WHERE v.id_jenis = ? AND b.tanggal_panen BETWEEN ? AND ? "
+            "GROUP BY v.id_varietas, k.id_keterangan "
+            "ORDER BY v.nama_varietas, k.nama_keterangan",
+            (id_jenis, mulai, selesai)).fetchall()
+        return [dict(baris) for baris in baris_list]
+
+    def summarize_by_pohon(self, id_jenis: str, mulai: str, selesai: str) -> list[dict]:
+        """Ringkas buah satu jenis per pohon, dalam rentang tanggal panen (inklusif).
+
+        Args:
+            id_jenis: Id jenis tanaman.
+            mulai: Tanggal mulai format YYYY-MM-DD.
+            selesai: Tanggal selesai format YYYY-MM-DD.
+
+        Returns:
+            Satu dict per pohon yang punya buah:
+            {"id_pohon", "nama_varietas", "nomor_pohon", "jumlah_buah",
+            "total_bobot"}, urut berdasarkan nama varietas lalu nomor pohon.
+            Tanpa buah menghasilkan [].
+        """
+        baris_list = self.conn.execute(
+            "SELECT p.id_pohon, v.nama_varietas, p.nomor_pohon, "
+            "COUNT(*) AS jumlah_buah, SUM(b.bobot) AS total_bobot FROM buah b "
+            "JOIN pohon p ON p.id_pohon = b.id_pohon "
+            "JOIN varietas v ON v.id_varietas = p.id_varietas "
+            "WHERE v.id_jenis = ? AND b.tanggal_panen BETWEEN ? AND ? "
+            "GROUP BY p.id_pohon "
+            "ORDER BY v.nama_varietas, p.nomor_pohon",
+            (id_jenis, mulai, selesai)).fetchall()
+        return [dict(baris) for baris in baris_list]
+
     def delete(self, id_buah: str) -> None:
         """Hapus satu catatan buah. Tidak error jika id tidak ada.
 

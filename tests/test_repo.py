@@ -865,5 +865,84 @@ class TestRepoStokPohon(DasarRepo):
             self.repo_periode.delete(self.periode.get_id_periode())
 
 
+class TestRepoRingkasan(DasarRepo):
+    """Query agregat untuk laporan."""
+
+    def setUp(self):
+        super().setUp()
+        self.simpan_induk()
+        self.montong = Varietas("Montong", self.jenis)
+        self.repo_varietas.create(self.montong)
+        self.pohon_montong = Pohon(1, self.montong)
+        self.pohon_8 = Pohon(8, self.varietas)
+        self.rusak = KeteranganBuah("Rusak")
+        self.repo_keterangan.create(self.rusak)
+        alpukat = JenisTanaman("Alpukat")
+        self.repo_jenis.create(alpukat)
+        kendil = Varietas("Kendil", alpukat)
+        self.repo_varietas.create(kendil)
+        self.pohon_kendil = Pohon(1, kendil)
+        for pohon in (self.pohon_montong, self.pohon_8, self.pohon_kendil):
+            self.repo_pohon.create(pohon)
+
+        for pohon, keterangan, bobot, tanggal in (
+                (self.pohon, self.baik, 2.0, "2026-01-01"),
+                (self.pohon, self.baik, 3.0, "2026-01-31"),
+                (self.pohon_8, self.baik, 1.5, "2026-01-15"),
+                (self.pohon, self.rusak, 1.0, "2026-01-10"),
+                (self.pohon_montong, self.baik, 4.0, "2026-01-20"),
+                (self.pohon, self.baik, 9.0, "2025-12-31"),
+                (self.pohon, self.baik, 9.0, "2026-02-01"),
+                (self.pohon_kendil, self.baik, 0.5, "2026-01-15")):
+            self.repo_buah.create(self.buah_baru(pohon=pohon, keterangan=keterangan,
+                                                 bobot=bobot, tanggal_panen=tanggal))
+
+    def test_summarize_by_varietas_keterangan(self):
+        hasil = self.repo_buah.summarize_by_varietas_keterangan(
+            self.jenis.get_id_jenis(), "2026-01-01", "2026-01-31")
+        self.assertEqual(
+            [(b["nama_varietas"], b["nama_keterangan"], b["jumlah_buah"], b["total_bobot"],
+              b["bobot_min"], b["bobot_max"]) for b in hasil],
+            [("Montong", "Baik", 1, 4.0, 4.0, 4.0),
+             ("Musang King", "Baik", 3, 6.5, 1.5, 3.0),
+             ("Musang King", "Rusak", 1, 1.0, 1.0, 1.0)])
+        self.assertEqual(hasil[0]["id_varietas"], self.montong.get_id_varietas())
+
+    def test_summarize_kosong(self):
+        self.assertEqual(self.repo_buah.summarize_by_varietas_keterangan(
+            self.jenis.get_id_jenis(), "2027-01-01", "2027-12-31"), [])
+        self.assertEqual(self.repo_buah.summarize_by_pohon(
+            self.jenis.get_id_jenis(), "2027-01-01", "2027-12-31"), [])
+
+    def test_summarize_by_pohon(self):
+        hasil = self.repo_buah.summarize_by_pohon(
+            self.jenis.get_id_jenis(), "2026-01-01", "2026-01-31")
+        self.assertEqual(
+            [(b["nama_varietas"], b["nomor_pohon"], b["jumlah_buah"], b["total_bobot"])
+             for b in hasil],
+            [("Montong", 1, 1, 4.0), ("Musang King", 7, 3, 6.0), ("Musang King", 8, 1, 1.5)])
+        self.assertEqual(hasil[1]["id_pohon"], self.pohon.get_id_pohon())
+
+    def test_sum_stok_by_varietas_dan_pohon(self):
+        periode = PeriodePanen("A", "2026-01-01", "2026-01-31")
+        lain = PeriodePanen("B", "2025-01-01", "2025-01-31")
+        self.repo_periode.create(periode)
+        self.repo_periode.create(lain)
+        for pohon, jumlah in ((self.pohon, 10), (self.pohon_8, 5), (self.pohon_montong, 3),
+                              (self.pohon_kendil, 7)):
+            self.repo_stok.create(StokPohon(pohon, periode, jumlah, "2026-01-02"))
+        self.repo_stok.create(StokPohon(self.pohon, lain, 99, "2025-01-02"))
+
+        self.assertEqual(
+            [(b["nama_varietas"], b["jumlah_stok"]) for b in self.repo_stok.sum_by_varietas(
+                periode.get_id_periode(), self.jenis.get_id_jenis())],
+            [("Montong", 3), ("Musang King", 15)])
+        self.assertEqual(
+            [(b["nama_varietas"], b["nomor_pohon"], b["jumlah_stok"])
+             for b in self.repo_stok.sum_by_pohon(periode.get_id_periode(), self.jenis.get_id_jenis())],
+            [("Montong", 1, 3), ("Musang King", 7, 10), ("Musang King", 8, 5)])
+        self.assertEqual(self.repo_stok.sum_by_varietas("tidak-ada", self.jenis.get_id_jenis()), [])
+
+
 if __name__ == "__main__":
     unittest.main()

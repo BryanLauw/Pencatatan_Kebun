@@ -92,6 +92,51 @@ class RepoStokPohon:
             for baris in baris_list
         ]
 
+    def sum_by_varietas(self, id_periode: str, id_jenis: str) -> list[dict]:
+        """Jumlahkan stok satu jenis di satu periode per varietas.
+
+        Args:
+            id_periode: Id periode.
+            id_jenis: Id jenis tanaman.
+
+        Returns:
+            Satu dict per varietas yang punya stok:
+            {"id_varietas", "nama_varietas", "jumlah_stok"}, urut berdasarkan
+            nama varietas. Tanpa stok menghasilkan [].
+        """
+        baris_list = self.conn.execute(
+            "SELECT v.id_varietas, v.nama_varietas, SUM(s.jumlah_buah) AS jumlah_stok "
+            "FROM stok_pohon s "
+            "JOIN pohon p ON p.id_pohon = s.id_pohon "
+            "JOIN varietas v ON v.id_varietas = p.id_varietas "
+            "WHERE s.id_periode = ? AND v.id_jenis = ? "
+            "GROUP BY v.id_varietas "
+            "ORDER BY v.nama_varietas",
+            (id_periode, id_jenis)).fetchall()
+        return [dict(baris) for baris in baris_list]
+
+    def sum_by_pohon(self, id_periode: str, id_jenis: str) -> list[dict]:
+        """Stok satu jenis di satu periode per pohon, tanpa memuat objek.
+
+        Args:
+            id_periode: Id periode.
+            id_jenis: Id jenis tanaman.
+
+        Returns:
+            Satu dict per pohon yang punya stok:
+            {"id_pohon", "nama_varietas", "nomor_pohon", "jumlah_stok"}, urut
+            berdasarkan nama varietas lalu nomor pohon. Tanpa stok menghasilkan [].
+        """
+        baris_list = self.conn.execute(
+            "SELECT p.id_pohon, v.nama_varietas, p.nomor_pohon, s.jumlah_buah AS jumlah_stok "
+            "FROM stok_pohon s "
+            "JOIN pohon p ON p.id_pohon = s.id_pohon "
+            "JOIN varietas v ON v.id_varietas = p.id_varietas "
+            "WHERE s.id_periode = ? AND v.id_jenis = ? "
+            "ORDER BY v.nama_varietas, p.nomor_pohon",
+            (id_periode, id_jenis)).fetchall()
+        return [dict(baris) for baris in baris_list]
+
     def delete(self, id_pohon: str, id_periode: str) -> None:
         """Hapus stok satu pohon di satu periode. Tidak error jika tidak ada.
 

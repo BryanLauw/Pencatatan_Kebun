@@ -1,12 +1,17 @@
 import sqlite3
-from typing import Optional
 
 from pencatatan_kebun.models import JenisTanaman, KeteranganBuah, Pohon, Varietas
 from pencatatan_kebun.repo.jenis_tanaman import RepoJenisTanaman
 from pencatatan_kebun.repo.keterangan_buah import RepoKeteranganBuah
 from pencatatan_kebun.repo.pohon import RepoPohon
 from pencatatan_kebun.repo.varietas import RepoVarietas
-from pencatatan_kebun.services.exception import DataMasihDipakaiException, DataSudahAdaException, DataTidakDitemukanException, NamaKosongException, NomorPohonTidakValidException
+from pencatatan_kebun.services.exception import (
+    DataMasihDipakaiException,
+    DataSudahAdaException,
+    DataTidakDitemukanException,
+    NamaKosongException,
+    NomorPohonTidakValidException,
+)
 
 
 class MasterService:
@@ -27,7 +32,7 @@ class MasterService:
         self.repo_keterangan = RepoKeteranganBuah(conn)
 
     # ---- jenis tanaman ----
-    def _cek_jenis(self, nama_jenis: str, id_jenis: Optional[str] = None) -> None:
+    def _cek_jenis(self, nama_jenis: str, id_jenis: str | None = None) -> None:
         """Cek nama jenis sebelum tambah/ubah.
 
         Args:
@@ -124,7 +129,7 @@ class MasterService:
     
 
     # ---- varietas ----
-    def _cek_varietas(self, nama_varietas: str, jenis: JenisTanaman, id_varietas: Optional[str] = None) -> None:
+    def _cek_varietas(self, nama_varietas: str, jenis: JenisTanaman, id_varietas: str | None = None) -> None:
         """Cek nama varietas sebelum tambah/ubah.
 
         Args:
@@ -217,7 +222,7 @@ class MasterService:
         self.repo_varietas.delete(id_varietas)
         self.conn.commit()
 
-    def daftar_varietas(self, jenis: Optional[JenisTanaman] = None) -> list[Varietas]:
+    def daftar_varietas(self, jenis: JenisTanaman | None = None) -> list[Varietas]:
         """Daftar varietas.
 
         Args:
@@ -232,7 +237,7 @@ class MasterService:
 
     # ---- pohon ----
 
-    def _cek_pohon(self, nomor_pohon: int, id_pohon: Optional[str] = None) -> None:
+    def _cek_pohon(self, nomor_pohon: int, id_pohon: str | None = None) -> None:
         """Cek nomor pohon sebelum tambah/ubah.
 
         Args:
@@ -322,7 +327,7 @@ class MasterService:
 
     # ---- keterangan buah ----
 
-    def _cek_keterangan(self, nama_keterangan: str, id_keterangan: Optional[str] = None) -> None:
+    def _cek_keterangan(self, nama_keterangan: str, id_keterangan: str | None = None) -> None:
         """Cek nama keterangan sebelum tambah/ubah.
 
         Args:

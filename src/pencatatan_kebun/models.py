@@ -1,5 +1,4 @@
 import uuid
-from typing import Optional
 from datetime import datetime
 
 
@@ -13,7 +12,7 @@ class JenisTanaman:
             punya setter.
     """
 
-    def __init__(self, nama_jenis: str, deskripsi: str = "", id_jenis: Optional[str] = None):
+    def __init__(self, nama_jenis: str, deskripsi: str = "", id_jenis: str | None = None):
         self.id_jenis = id_jenis or str(uuid.uuid4())
         self.nama_jenis = nama_jenis
         self.deskripsi = deskripsi
@@ -46,7 +45,7 @@ class Varietas:
     """
 
     def __init__(self, nama_varietas: str, jenis: JenisTanaman, deskripsi: str = "",
-                 id_varietas: Optional[str] = None):
+                 id_varietas: str | None = None):
         self.id_varietas = id_varietas or str(uuid.uuid4())
         self.nama_varietas = nama_varietas
         self.jenis = jenis
@@ -86,7 +85,7 @@ class Pohon:
             punya setter.
     """
 
-    def __init__(self, nomor_pohon: int, id_pohon: Optional[str] = None):
+    def __init__(self, nomor_pohon: int, id_pohon: str | None = None):
         self.id_pohon = id_pohon or str(uuid.uuid4())
         self.nomor_pohon = nomor_pohon
 
@@ -111,7 +110,7 @@ class KeteranganBuah:
     """
 
     def __init__(self, nama_keterangan: str, deskripsi: str = "",
-                 id_keterangan: Optional[str] = None):
+                 id_keterangan: str | None = None):
         self.id_keterangan = id_keterangan or str(uuid.uuid4())
         self.nama_keterangan = nama_keterangan
         self.deskripsi = deskripsi
@@ -148,7 +147,7 @@ class Buah:
     """
 
     def __init__(self, pohon: Pohon, varietas: Varietas, bobot: float, keterangan: KeteranganBuah,
-                 tanggal_panen: str, id_buah: Optional[str] = None):
+                 tanggal_panen: str, id_buah: str | None = None):
         self.id_buah = id_buah or str(uuid.uuid4())
         self.pohon = pohon
         self.varietas = varietas
@@ -203,8 +202,8 @@ class PeriodePanen:
             tidak punya setter.
     """
 
-    def __init__(self, nama: str, tanggal_mulai: str, tanggal_selesai: Optional[str] = None,
-                 deskripsi: str = "", id_periode: Optional[str] = None):
+    def __init__(self, nama: str, tanggal_mulai: str, tanggal_selesai: str | None = None,
+                 deskripsi: str = "", id_periode: str | None = None):
         self.id_periode = id_periode or str(uuid.uuid4())
         self.nama = nama
         self.tanggal_mulai = tanggal_mulai
@@ -226,7 +225,7 @@ class PeriodePanen:
     def get_tanggal_mulai(self):
         return self.tanggal_mulai
 
-    def set_tanggal_selesai(self, tanggal_selesai: Optional[str]):
+    def set_tanggal_selesai(self, tanggal_selesai: str):
         self.tanggal_selesai = tanggal_selesai
 
     def get_tanggal_selesai(self):

@@ -1,5 +1,4 @@
 import sqlite3
-from typing import Optional
 
 from pencatatan_kebun.models import Pohon
 
@@ -32,7 +31,7 @@ class RepoPohon:
             "INSERT INTO pohon (id_pohon, nomor_pohon) VALUES (?, ?)",
             (pohon.get_id_pohon(), pohon.get_nomor_pohon()))
 
-    def read(self, id_pohon: str) -> Optional[Pohon]:
+    def read(self, id_pohon: str) -> Pohon | None:
         """Ambil satu pohon berdasarkan id.
 
         Args:
@@ -69,7 +68,7 @@ class RepoPohon:
             for baris in baris_list
         ]
 
-    def read_by_number(self, nomor_pohon: int) -> Optional[Pohon]:
+    def read_by_number(self, nomor_pohon: int) -> Pohon | None:
         """Ambil satu pohon berdasarkan nomor.
 
         Args:

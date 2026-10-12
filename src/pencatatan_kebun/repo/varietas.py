@@ -1,5 +1,4 @@
 import sqlite3
-from typing import Optional
 
 from pencatatan_kebun.models import JenisTanaman, Varietas
 from pencatatan_kebun.repo.jenis_tanaman import RepoJenisTanaman
@@ -36,7 +35,7 @@ class RepoVarietas:
             "INSERT INTO varietas (id_varietas, nama_varietas, id_jenis, deskripsi) VALUES (?, ?, ?, ?)",
             (varietas.get_id_varietas(), varietas.get_nama_varietas(), varietas.get_jenis().get_id_jenis(), varietas.get_deskripsi()))
 
-    def read(self, id_varietas: str) -> Optional[Varietas]:
+    def read(self, id_varietas: str) -> Varietas | None:
         """Ambil satu varietas berdasarkan id.
 
         Args:
@@ -80,7 +79,7 @@ class RepoVarietas:
             for baris in baris_list
         ]
 
-    def read_by_name(self, nama_varietas: str, jenis: JenisTanaman) -> Optional[Varietas]:
+    def read_by_name(self, nama_varietas: str, jenis: JenisTanaman) -> Varietas | None:
         """Ambil satu varietas berdasarkan nama di dalam satu jenis.
 
         Tidak membedakan huruf besar/kecil.
@@ -136,7 +135,7 @@ class RepoVarietas:
             for baris in baris_list
         ]
 
-    def read_by_jenis(self, jenis: Optional[JenisTanaman]) -> list[Varietas]:
+    def read_by_jenis(self, jenis: JenisTanaman | None) -> list[Varietas]:
         """Ambil varietas di satu jenis.
         
         Args:

@@ -1,10 +1,9 @@
 import sqlite3
-from typing import Optional
 
 from pencatatan_kebun.models import Buah
+from pencatatan_kebun.repo.keterangan_buah import RepoKeteranganBuah
 from pencatatan_kebun.repo.pohon import RepoPohon
 from pencatatan_kebun.repo.varietas import RepoVarietas
-from pencatatan_kebun.repo.keterangan_buah import RepoKeteranganBuah
 
 
 class RepoBuah:
@@ -39,7 +38,7 @@ class RepoBuah:
             "INSERT INTO buah (id_buah, id_pohon, id_varietas, tanggal_panen, id_keterangan, bobot) VALUES (?, ?, ?, ?, ?, ?)",
             (buah.get_id_buah(), buah.get_pohon().get_id_pohon(), buah.get_varietas().get_id_varietas(), buah.get_tanggal_panen(), buah.get_keterangan().get_id_keterangan(), buah.get_bobot()))
 
-    def read(self, id_buah: str) -> Optional[Buah]:
+    def read(self, id_buah: str) -> Buah | None:
         """Ambil satu buah berdasarkan id.
 
         Args:

@@ -32,6 +32,12 @@ class TestConfig(unittest.TestCase):
 
 
 class TestApp(unittest.TestCase):
+    def setUp(self):
+        # Jendela diganti tiruan agar tes tidak tertahan di mainloop.
+        patcher = mock.patch("pencatatan_kebun.app.JendelaUtama")
+        self.jendela = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_jalankan_membuat_database_di_lokasi_yang_diberikan(self):
         with tempfile.TemporaryDirectory() as folder:
             lokasi = Path(folder) / "data" / "kebun.db"
@@ -43,6 +49,19 @@ class TestApp(unittest.TestCase):
             with mock.patch.dict(os.environ, {"APPDATA": folder}):
                 jalankan()
             self.assertTrue((Path(folder) / config.NAMA_APLIKASI / "kebun.db").exists())
+
+    def test_jalankan_membuka_jendela_utama(self):
+        with tempfile.TemporaryDirectory() as folder:
+            jalankan(Path(folder) / "kebun.db")
+        self.jendela.return_value.mainloop.assert_called_once()
+
+    def test_koneksi_ditutup_walau_ui_error(self):
+        self.jendela.return_value.mainloop.side_effect = RuntimeError("ui rusak")
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch("pencatatan_kebun.app.buka_koneksi") as buka:
+                with self.assertRaises(RuntimeError):
+                    jalankan(Path(folder) / "kebun.db")
+            buka.return_value.close.assert_called_once()
 
 
 if __name__ == "__main__":

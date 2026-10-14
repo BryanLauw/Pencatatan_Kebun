@@ -21,6 +21,10 @@ AWALAN_OTOMATIS = "kebun-"
 TABEL_WAJIB = {"jenis_tanaman", "varietas", "pohon", "keterangan_buah", "buah",
                "periode_panen", "stok_pohon"}
 
+# Data selain data master, urut aman untuk dihapus (foreign key ON DELETE RESTRICT:
+# buah dan stok dulu, baru periode).
+TABEL_DATA_PANEN = ("buah", "stok_pohon", "periode_panen")
+
 
 class CadanganGagalException(ServiceException):
     """Cadangan tidak bisa ditulis, mis. folder tidak bisa ditulisi atau
@@ -134,6 +138,29 @@ def pulihkan_cadangan(conn: sqlite3.Connection, sumber: Path) -> None:
         asal.close()
 
 
+def nama_file_arsip(waktu: datetime | None = None) -> str:
+    """Nama usulan arsip sebelum data panen dikosongkan, mis. "Arsip Kebun 14-10-2026.db"."""
+    return f"Arsip Kebun {(waktu or datetime.now()).strftime('%d-%m-%Y')}.db"
+
+
+def hitung_data_panen(conn: sqlite3.Connection) -> dict[str, int]:
+    """Jumlah baris tiap tabel data panen, untuk ditampilkan di konfirmasi."""
+    return {tabel: conn.execute(f"SELECT COUNT(*) FROM {tabel}").fetchone()[0]
+            for tabel in TABEL_DATA_PANEN}
+
+
+def kosongkan_data_panen(conn: sqlite3.Connection) -> None:
+    """Hapus semua periode, stok, dan catatan buah; data master tetap.
+
+    Penghapusan dalam satu transaksi (semua terhapus atau tidak sama sekali),
+    lalu file database dipadatkan (VACUUM) supaya ukurannya ikut mengecil.
+    """
+    with conn:
+        for tabel in TABEL_DATA_PANEN:
+            conn.execute(f"DELETE FROM {tabel}")
+    conn.execute("VACUUM")
+
+
 class CadanganService:
     """Cadangan untuk ui: simpan manual, cadangan otomatis, dan pulihkan.
 
@@ -170,3 +197,27 @@ class CadanganService:
         sebelum = self.otomatis()
         pulihkan_cadangan(self.conn, sumber)
         return sebelum
+
+    def hitung_data_panen(self) -> dict[str, int]:
+        """Jumlah periode, stok, dan buah yang akan terhapus oleh arsipkan()."""
+        return hitung_data_panen(self.conn)
+
+    def arsipkan(self, tujuan: Path) -> None:
+        """Simpan semua data ke file arsip, lalu kosongkan data panen (periode,
+        stok, buah); data master tetap untuk dipakai periode berikutnya.
+
+        Data baru dihapus setelah arsip berhasil ditulis dan dicek, serta
+        cadangan otomatis dibuat (jaga-jaga file arsip hilang).
+
+        Raises:
+            CadanganGagalException: Arsip atau cadangan otomatis gagal dibuat;
+                data tidak diubah.
+        """
+        tujuan = Path(tujuan)
+        simpan_cadangan(self.conn, tujuan)
+        try:
+            _cek_cadangan(tujuan)
+        except CadanganTidakValidException as e:
+            raise CadanganGagalException(tujuan) from e
+        self.otomatis()
+        kosongkan_data_panen(self.conn)

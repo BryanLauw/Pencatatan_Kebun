@@ -72,6 +72,11 @@ Semua catatan ada di satu file `kebun.db`, jadi aplikasi menyediakan menu **Cada
 - **Pulihkan dari cadangan...**: ganti semua data dengan isi file cadangan, setelah
   konfirmasi. File dicek dulu (harus database Pencatatan Kebun yang utuh); data
   sebelum dipulihkan otomatis dicadangkan, jadi pemulihan yang keliru bisa dibatalkan.
+- **Arsipkan dan kosongkan data panen...**: simpan semua data ke file arsip (nama
+  bawaan `Arsip Kebun DD-MM-YYYY.db`), lalu hapus semua periode, stok, dan catatan
+  buah; data master (jenis, varietas, pohon, keterangan) tetap. Data baru dihapus
+  setelah arsip berhasil ditulis dan dicek, dan dibuat juga cadangan otomatis. Data
+  lama bisa dilihat lagi dengan memulihkan file arsip.
 - **Buka folder cadangan otomatis**: setiap kali aplikasi ditutup, dibuat cadangan
   otomatis; hanya 10 terbaru yang disimpan.
 

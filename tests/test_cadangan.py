@@ -14,12 +14,16 @@ from pencatatan_kebun.cadangan import (
     CadanganTidakValidException,
     cadangan_otomatis,
     daftar_cadangan_otomatis,
+    hitung_data_panen,
     nama_file_bawaan,
     pulihkan_cadangan,
     simpan_cadangan,
 )
 from pencatatan_kebun.db.koneksi import buka_koneksi
 from pencatatan_kebun.services.master import MasterService
+from pencatatan_kebun.services.panen import PanenService
+from pencatatan_kebun.services.periode import PeriodeService
+from pencatatan_kebun.services.stok import StokService
 
 
 class DasarCadangan(unittest.TestCase):
@@ -115,6 +119,52 @@ class TestService(DasarCadangan):
         with self.assertRaises(CadanganTidakValidException):
             service.pulihkan(teks)
         self.assertEqual(daftar_cadangan_otomatis(service.folder_otomatis), [])
+
+
+class TestArsipkan(DasarCadangan):
+    def setUp(self):
+        super().setUp()
+        jenis = self.master.daftar_jenis()[0]
+        varietas = self.master.tambah_varietas(jenis, "Bawor")
+        pohon = self.master.tambah_pohon(varietas, 1)
+        baik = self.master.tambah_keterangan("Baik")
+        periode = PeriodeService(self.conn).buka_periode("Raya 2026", "2026-09-01")
+        StokService(self.conn).catat_stok(pohon, periode, 10, "2026-09-02")
+        PanenService(self.conn).catat_buah(pohon, baik, 2.5, "2026-09-05")
+        self.service = CadanganService(self.conn, self.folder / "cadangan")
+
+    def test_hitung_data_panen(self):
+        self.assertEqual(self.service.hitung_data_panen(),
+                         {"buah": 1, "stok_pohon": 1, "periode_panen": 1})
+
+    def test_arsip_berisi_semua_data_lalu_data_panen_kosong(self):
+        arsip = self.folder / "arsip.db"
+        self.service.arsipkan(arsip)
+        self.assertEqual(self.service.hitung_data_panen(),
+                         {"buah": 0, "stok_pohon": 0, "periode_panen": 0})
+        # Data master tetap.
+        self.assertEqual(self.nama_jenis(), ["Durian"])
+        self.assertEqual(len(self.master.daftar_keterangan()), 1)
+        isi_arsip = sqlite3.connect(arsip)
+        self.addCleanup(isi_arsip.close)
+        self.assertEqual(hitung_data_panen(isi_arsip),
+                         {"buah": 1, "stok_pohon": 1, "periode_panen": 1})
+        # Jaga-jaga file arsip hilang: ada juga di cadangan otomatis.
+        self.assertEqual(len(daftar_cadangan_otomatis(self.service.folder_otomatis)), 1)
+
+    def test_arsip_gagal_ditulis_data_tidak_dihapus(self):
+        tujuan = self.folder / "folder.db"
+        tujuan.mkdir()
+        with self.assertRaises(CadanganGagalException):
+            self.service.arsipkan(tujuan)
+        self.assertEqual(self.service.hitung_data_panen(),
+                         {"buah": 1, "stok_pohon": 1, "periode_panen": 1})
+
+    def test_arsip_bisa_dipulihkan(self):
+        arsip = self.folder / "arsip.db"
+        self.service.arsipkan(arsip)
+        self.service.pulihkan(arsip)
+        self.assertEqual(self.service.hitung_data_panen()["buah"], 1)
 
 
 if __name__ == "__main__":

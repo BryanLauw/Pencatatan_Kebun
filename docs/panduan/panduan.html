@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Panduan Pencatatan Kebun</title>
+<!-- Sumber "Panduan Pencatatan Kebun.pdf" (dibuat oleh buat_exe.ps1 dengan Microsoft Edge).
+     Gambar di folder gambar/ dibuat oleh ambil_gambar.py. -->
+<style>
+  @page { size: A4; margin: 16mm 16mm 18mm; }
+  body { font-family: "Segoe UI", Arial, sans-serif; font-size: 12.5pt; line-height: 1.5;
+         color: #1f1f1f; background: #fff; margin: 0; }
+  h1 { font-size: 24pt; margin: 0 0 4pt; }
+  h2 { font-size: 16pt; margin: 22pt 0 6pt; padding-bottom: 3pt; border-bottom: 2px solid #4a6984;
+       break-after: avoid; }
+  h3 { font-size: 13pt; margin: 12pt 0 4pt; break-after: avoid; }
+  p, li { margin: 4pt 0; }
+  ol, ul { padding-left: 20pt; }
+  .sub { color: #555; margin-bottom: 14pt; }
+  b.t { background: #ecebe6; border: 1px solid #b9b7ae; border-radius: 3px; padding: 0 4px;
+        font-weight: 600; white-space: nowrap; }
+  figure { margin: 8pt 0 10pt; break-inside: avoid; }
+  img { width: 100%; border: 1px solid #bbb; }
+  figcaption { font-size: 10.5pt; color: #555; margin-top: 2pt; }
+  .kotak { border-left: 4px solid #9a6700; background: #fdf6e3; padding: 6pt 10pt; margin: 8pt 0;
+           break-inside: avoid; }
+  .penting { border-left-color: #b42318; background: #fdecea; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0; }
+  td, th { border: 1px solid #ccc; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #f0efea; }
+  .baru { break-before: page; }
+</style>
+</head>
+<body>
+
+<h1>Panduan Pencatatan Kebun</h1>
+<p class="sub">Aplikasi untuk mencatat stok buah dan hasil panen kebun, pengganti catatan Excel.</p>
+
+<h2>1. Memasang aplikasi</h2>
+<ol>
+  <li>Jika menerima file <b>zip</b>: klik kanan file zip, pilih <b class="t">Extract All</b>
+      (Ekstrak Semua), lalu <b class="t">Extract</b>.</li>
+  <li>Pindahkan folder <b>PencatatanKebun</b> ke tempat tetap, misalnya <b>C:\PencatatanKebun</b>.
+      Isi folder jangan dipisah-pisah.</li>
+  <li>Di dalam folder itu, klik kanan <b>PencatatanKebun.exe</b> &rarr;
+      <b class="t">Show more options</b> (Tampilkan opsi lainnya) &rarr;
+      <b class="t">Send to</b> (Kirim ke) &rarr; <b class="t">Desktop (create shortcut)</b>.
+      Selanjutnya buka aplikasi dari ikon di Desktop.</li>
+</ol>
+<div class="kotak">
+  Jika muncul tulisan <b>"Windows melindungi PC Anda"</b>, klik <b class="t">More info</b> (Info selengkapnya)
+  lalu <b class="t">Run anyway</b> (Tetap jalankan). Ini hanya muncul pertama kali.
+</div>
+
+<h2>2. Mengenal jendela aplikasi</h2>
+<p>Di bagian atas ada lima tab. Klik nama tab untuk berpindah halaman.</p>
+<table>
+  <tr><th style="width:28%">Tab</th><th>Kegunaan</th></tr>
+  <tr><td><b>Dashboard</b></td><td>Melihat ringkasan panen: jumlah buah, berat, dan diagram.</td></tr>
+  <tr><td><b>Catat Panen</b></td><td>Mencatat buah yang dipanen (paling sering dipakai).</td></tr>
+  <tr><td><b>Stok Pohon</b></td><td>Mencatat jumlah buah di setiap pohon pada awal musim.</td></tr>
+  <tr><td><b>Periode Panen</b></td><td>Membuka dan menutup musim panen.</td></tr>
+  <tr><td><b>Data Master</b></td><td>Daftar jenis tanaman, varietas, pohon, dan keterangan buah.</td></tr>
+</table>
+<h3>Cara mengisi yang sama di semua tab</h3>
+<ul>
+  <li>Daftar data ada di <b>kiri</b>, isian ada di <b>kanan</b>.</li>
+  <li><b class="t">Baru</b> mengosongkan isian untuk data baru. <b class="t">Simpan</b>
+      (atau tombol <b>Enter</b> di keyboard) menyimpan.</li>
+  <li>Untuk <b>memperbaiki</b> data: klik barisnya di daftar kiri, ubah isian di kanan,
+      lalu <b class="t">Simpan</b>. Untuk <b>menghapus</b>: klik barisnya, lalu
+      <b class="t">Hapus</b>.</li>
+  <li><b>Tanggal</b> dipilih dari kalender: klik tanda panah kecil di kotak tanggal, lalu klik
+      tanggalnya. Tombol <b class="t">Hari ini</b> langsung mengisi tanggal hari ini.</li>
+  <li><b>Berat</b> ditulis dalam kilogram dengan koma, misalnya <b>2,4</b>.</li>
+  <li>Jika ada isian yang salah, muncul pesan yang menjelaskan apa yang perlu diperbaiki.</li>
+</ul>
+
+<h2 class="baru">3. Pertama kali: isi Data Master</h2>
+<p>Lakukan sekali saja di awal, dan tambahkan lagi jika ada pohon baru. Buka tab
+   <b class="t">Data Master</b>. Isi berurutan dari tab kecil paling kiri:</p>
+<ol>
+  <li><b>Jenis</b>: nama tanaman, misalnya <i>Durian</i>, <i>Alpukat</i>. Ketik nama, tekan
+      <b>Enter</b>. Klik <b class="t">Baru</b> untuk jenis berikutnya.</li>
+  <li><b>Varietas</b>: pilih jenisnya, lalu ketik nama varietas, misalnya <i>Bawor</i>,
+      <i>Musang King</i>.</li>
+  <li><b>Pohon</b>: pilih varietas, lalu isi nomor pohon (1, 2, 3, ...). Nomor boleh sama untuk
+      varietas berbeda (Bawor nomor 1 dan Montong nomor 1).</li>
+  <li><b>Keterangan</b>: keadaan buah saat dipanen, misalnya <i>Baik</i>, <i>Gugur</i>,
+      <i>Rusak</i>. Keterangan ini dipilih setiap kali mencatat buah.</li>
+</ol>
+<figure>
+  <img src="gambar/master_pohon.png" alt="Tab Data Master, bagian Pohon">
+  <figcaption>Data Master &rarr; Pohon: pilih varietas, isi nomor pohon, tekan Enter.</figcaption>
+</figure>
+
+<h2>4. Membuka periode panen</h2>
+<p>Periode adalah satu musim panen, misalnya <i>Raya 2026</i>. Buka periode baru setiap awal
+   musim. Buka tab <b class="t">Periode Panen</b>:</p>
+<ol>
+  <li>Isi <b>Nama periode</b>, misalnya <i>Raya 2026</i>.</li>
+  <li>Pilih <b>Tanggal mulai</b>.</li>
+  <li>Biarkan <b>Tanggal selesai</b> kosong selama musim masih berjalan.</li>
+  <li>Klik <b class="t">Simpan</b>. Periode tampil dengan status <b>Aktif</b> (berwarna hijau).</li>
+</ol>
+<p>Saat periode baru dibuka, periode sebelumnya otomatis ditutup sehari sebelumnya. Untuk menutup
+   periode secara manual, klik periodenya lalu <b class="t">Tutup periode</b>.</p>
+<figure>
+  <img src="gambar/periode.png" alt="Tab Periode Panen">
+  <figcaption>Periode Panen: periode yang masih berjalan berstatus Aktif.</figcaption>
+</figure>
+
+<h2 class="baru">5. Mengisi stok pohon (awal musim)</h2>
+<p>Stok adalah jumlah buah yang dihitung di setiap pohon. Dari stok ini aplikasi menghitung
+   <b>sisa</b> buah yang belum dipanen. Buka tab <b class="t">Stok Pohon</b>:</p>
+<ol>
+  <li>Pastikan <b>Periode</b> di atas sudah benar (biasanya periode aktif).</li>
+  <li>Klik pohon pertama di daftar.</li>
+  <li>Ketik <b>Jumlah buah</b>, pilih <b>Tanggal hitung</b>, lalu tekan <b>Enter</b>.
+      Pilihan otomatis pindah ke pohon berikutnya, jadi cukup ketik angka dan Enter terus.</li>
+</ol>
+<ul>
+  <li>Pohon yang belum dihitung tampil <b>abu-abu</b>.</li>
+  <li>Baris <b>merah muda</b> berarti buah yang dipanen sudah lebih banyak dari stoknya;
+      periksa lagi jumlah stoknya.</li>
+  <li>Kolom <b>Tercatat</b> = buah yang sudah dicatat panen; <b>Sisa</b> = stok dikurangi
+      tercatat.</li>
+</ul>
+<figure>
+  <img src="gambar/stok.png" alt="Tab Stok Pohon">
+  <figcaption>Stok Pohon: klik pohon, ketik jumlah buah, Enter, lanjut ke pohon berikutnya.</figcaption>
+</figure>
+
+<h2 class="baru">6. Mencatat panen (setiap hari panen)</h2>
+<p>Setiap buah dicatat satu per satu beserta beratnya. Buka tab <b class="t">Catat Panen</b>:</p>
+<ol>
+  <li>Pilih <b>Tanggal panen</b> di kiri atas (biasanya <b class="t">Hari ini</b>).</li>
+  <li>Di kanan, pilih <b>Jenis</b>, <b>Varietas</b>, dan <b>Pohon</b>.</li>
+  <li>Pilih <b>Keterangan</b> (misalnya Baik, Gugur, Rusak).</li>
+  <li>Ketik <b>Bobot (kg)</b>, misalnya <b>2,4</b>, lalu tekan <b>Enter</b>.</li>
+  <li>Untuk buah berikutnya dari pohon yang sama, <b>cukup ketik bobot dan Enter lagi</b>.
+      Pohon dan keterangan tidak berubah. Ganti pohon atau keterangan hanya jika perlu.</li>
+</ol>
+<p>Daftar di kiri menampilkan semua buah pada tanggal itu, dan di bawahnya jumlah buah serta
+   total beratnya. Di bawah isian tampil sisa buah pohon yang dipilih.</p>
+<div class="kotak">
+  Jika muncul pesan <b>"Periksa sisa buah"</b>, artinya sisa buah pohon itu sudah habis, pohon
+  belum diisi stoknya, atau tanggalnya di luar periode panen. Periksa lagi pilihan pohon dan
+  tanggal. Jika memang benar, klik <b class="t">Yes</b> (Ya) untuk tetap menyimpan.
+</div>
+<figure>
+  <img src="gambar/catat_panen.png" alt="Tab Catat Panen">
+  <figcaption>Catat Panen: pilih pohon dan keterangan, ketik bobot, Enter.</figcaption>
+</figure>
+
+<h2 class="baru">7. Melihat hasil dan membuat laporan Excel</h2>
+<p>Buka tab <b class="t">Dashboard</b>. Pilih <b>Periode</b> di atas. Setiap jenis tanaman
+   punya tab sendiri (misalnya Durian, Alpukat), berisi:</p>
+<ul>
+  <li>Kotak angka: <b>Stok</b>, <b>Panen</b>, <b>Sisa</b>, <b>Total bobot</b>, dan
+      <b>Rata-rata</b> berat per buah.</li>
+  <li>Diagram panen <b>per varietas</b> dan <b>per keterangan</b>.</li>
+  <li>Tabel per varietas. Klik tanda kecil di kiri nama varietas untuk melihat rincian per
+      keterangan. Klik satu varietas untuk melihat diagram keterangannya saja.</li>
+</ul>
+<figure>
+  <img src="gambar/dashboard.png" alt="Tab Dashboard">
+  <figcaption>Dashboard: ringkasan panen satu periode untuk setiap jenis tanaman.</figcaption>
+</figure>
+<h3>Laporan Excel</h3>
+<ol>
+  <li>Di Dashboard, pilih periodenya, lalu klik <b class="t">Ekspor ke Excel</b>.</li>
+  <li>Pilih tempat menyimpan (bawaannya folder <b>Dokumen</b>), lalu klik <b class="t">Save</b> (Simpan).</li>
+  <li>Pilih <b class="t">Yes</b> (Ya) untuk langsung membuka filenya.</li>
+</ol>
+<p>File Excel berisi ringkasan, satu lembar per jenis (seperti catatan Excel lama: satu baris
+   per pohon, satu kolom per tanggal panen), dan daftar setiap buah dengan beratnya.</p>
+
+<h2 class="baru">8. Menyimpan cadangan (penting)</h2>
+<div class="kotak penting">
+  Semua catatan tersimpan di komputer ini. Jika komputer rusak atau hilang, catatan ikut hilang.
+  <b>Simpan cadangan ke flashdisk secara rutin</b>, misalnya setiap minggu selama musim panen.
+</div>
+<p>Menu <b class="t">Cadangan</b> ada di baris paling atas jendela, di bawah judul.</p>
+<h3>Menyimpan cadangan</h3>
+<ol>
+  <li>Colokkan flashdisk.</li>
+  <li>Klik <b class="t">Cadangan</b> &rarr; <b class="t">Simpan cadangan...</b></li>
+  <li>Pilih flashdisk sebagai tempat menyimpan, lalu klik <b class="t">Save</b> (Simpan). Nama file
+      otomatis berisi tanggal hari ini, misalnya <i>Cadangan Kebun 14-10-2026.db</i>.</li>
+</ol>
+<p>Selain itu, aplikasi juga otomatis menyimpan cadangan di komputer setiap kali ditutup
+   (10 cadangan terakhir). Cadangan otomatis ini tidak menolong jika komputernya yang rusak,
+   jadi tetap simpan ke flashdisk.</p>
+<h3>Mengembalikan data dari cadangan</h3>
+<ol>
+  <li>Klik <b class="t">Cadangan</b> &rarr; <b class="t">Pulihkan dari cadangan...</b></li>
+  <li>Pilih file cadangan, lalu jawab <b class="t">Yes</b> (Ya).</li>
+</ol>
+<p>Semua data sekarang diganti dengan isi cadangan. Data sebelumnya disimpan dulu secara
+   otomatis, jadi jika salah pilih file masih bisa dikembalikan.</p>
+
+<h2>9. Akhir tahun: arsipkan data panen</h2>
+<p>Jika ingin memulai dari catatan kosong (misalnya setiap awal tahun), klik
+   <b class="t">Cadangan</b> &rarr; <b class="t">Arsipkan dan kosongkan data panen...</b>
+   Semua data disimpan ke file arsip, lalu periode, stok, dan catatan buah dihapus dari
+   aplikasi. Data Master (jenis, varietas, pohon, keterangan) <b>tetap ada</b>.</p>
+<p>Ini tidak wajib; aplikasi tetap lancar walau berisi catatan bertahun-tahun. Untuk melihat
+   data lama lagi, pakai <b>Pulihkan dari cadangan</b> dengan file arsip tersebut.</p>
+
+<h2>10. Jika ada masalah</h2>
+<ul>
+  <li><b>Muncul pesan kesalahan</b>: baca pesannya; biasanya menjelaskan isian mana yang salah.</li>
+  <li><b>Aplikasi tidak mau terbuka atau muncul kesalahan tak terduga</b>: hubungi pembuat
+      aplikasi dan kirimkan file <b>kebun.log</b>. Cara menemukannya: tekan tombol
+      <b>Windows + R</b>, ketik <b>%APPDATA%\PencatatanKebun</b>, tekan Enter.</li>
+  <li><b>Salah memasukkan data</b>: klik barisnya di daftar, perbaiki, lalu
+      <b class="t">Simpan</b>. Atau klik <b class="t">Hapus</b>.</li>
+  <li><b>Memasang versi baru</b>: ganti folder PencatatanKebun dengan yang baru. Catatan tidak
+      hilang, karena tersimpan terpisah dari folder aplikasi.</li>
+</ul>
+
+</body>
+</html>

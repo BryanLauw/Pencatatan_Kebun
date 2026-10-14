@@ -169,9 +169,27 @@ Supaya aplikasi bisa dipakai di komputer tanpa Python, dibuat folder berisi
 powershell -ExecutionPolicy Bypass -File buat_exe.ps1
 ```
 
-Hasilnya folder `dist\PencatatanKebun\` (sekitar 29 MB): `PencatatanKebun.exe` dan
-folder `_internal\` berisi Python, tkinter, openpyxl, dan `skema.sql`. Exe tidak bisa
-dijalankan tanpa `_internal\` di sebelahnya. Folder `build\` dan `dist\` tidak masuk git.
+Hasilnya di `dist\`:
+
+- Folder `PencatatanKebun\` (sekitar 29 MB): `PencatatanKebun.exe`, folder `_internal\`
+  (Python, tkinter, openpyxl, `skema.sql`), dan `Panduan Pencatatan Kebun.pdf`. Exe tidak
+  bisa dijalankan tanpa `_internal\` di sebelahnya.
+- `PencatatanKebun-<versi>.zip` (sekitar 13 MB): folder itu dalam satu file, untuk dikirim.
+
+Folder `build\` dan `dist\` tidak masuk git.
+
+### Panduan pemakai
+
+Panduan untuk pemilik kebun (memasang, Data Master, periode, stok, catat panen, dashboard,
+Excel, cadangan) ditulis di `docs/panduan/panduan.html`. `buat_exe.ps1` mencetaknya menjadi
+PDF dengan Microsoft Edge (bawaan Windows). Gambar layar di `docs/panduan/gambar/` dibuat
+dengan data contoh, tanpa menyentuh database asli; buat ulang jika tampilan aplikasi berubah:
+
+```powershell
+.venv\Scripts\python docs\panduan\ambil_gambar.py
+```
+
+Jendela aplikasi muncul beberapa detik selama gambar diambil.
 
 Nomor versi ada di `$Versi` di bagian atas `buat_exe.ps1`; naikkan setiap kali exe baru
 dibagikan. Versi, nama produk, dan pembuat tampil di klik kanan exe -> **Properties ->
@@ -186,7 +204,8 @@ dicurigai antivirus.
 1. Salin seluruh folder `dist\PencatatanKebun\` lewat **flashdisk**, mis. ke
    `C:\PencatatanKebun\`. Hindari mengirim lewat unduhan (browser, email, WhatsApp,
    Google Drive): file unduhan ditandai "dari internet" sehingga diperiksa SmartScreen.
-2. Klik kanan `PencatatanKebun.exe` -> **Kirim ke -> Desktop (buat pintasan)**.
+2. Klik kanan `PencatatanKebun.exe` -> **Show more options -> Send to -> Desktop (create
+   shortcut)**. Langkah lengkap untuk pemilik kebun ada di PDF panduan di folder yang sama.
 3. Data tetap di `%APPDATA%\PencatatanKebun\`, terpisah dari exe. Mengganti folder
    aplikasi dengan versi baru tidak menghapus data.
 

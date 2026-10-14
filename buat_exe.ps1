@@ -1,4 +1,4 @@
-# Buat folder dist\PencatatanKebun\ (berisi PencatatanKebun.exe) dengan PyInstaller.
+# Buat folder dist\PencatatanKebun\ (exe + panduan PDF) dan zip-nya untuk dikirim.
 # Jalankan dari folder proyek: powershell -ExecutionPolicy Bypass -File buat_exe.ps1
 # Butuh .venv dengan requirements-dev.txt terpasang.
 #
@@ -44,4 +44,27 @@ if (Test-Path dist) { Remove-Item -Recurse -Force dist }
     src\pencatatan_kebun\__main__.py
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller gagal (kode $LASTEXITCODE)" }
 
-Write-Host "Selesai: $PSScriptRoot\dist\PencatatanKebun\PencatatanKebun.exe (versi $Versi)"
+# Panduan pemakai: docs\panduan\panduan.html -> PDF di samping exe, dicetak oleh
+# Microsoft Edge (bawaan Windows). Gambarnya dibuat ulang dengan ambil_gambar.py.
+$edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+          "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $edge) { throw "Microsoft Edge tidak ditemukan; dibutuhkan untuk membuat PDF panduan" }
+$pdf = "$PSScriptRoot\dist\PencatatanKebun\Panduan Pencatatan Kebun.pdf"
+$html = ([Uri]"$PSScriptRoot\docs\panduan\panduan.html").AbsoluteUri
+$profil = "$PSScriptRoot\build\edge"
+# Edge menulis pesan biasa ke stderr; jangan dianggap error (hasilnya dicek lewat file PDF).
+$ErrorActionPreference = "Continue"
+& $edge --headless --disable-gpu --no-pdf-header-footer "--user-data-dir=$profil" `
+    "--print-to-pdf=$pdf" $html 2>&1 | Out-Null
+$ErrorActionPreference = "Stop"
+if (-not (Test-Path $pdf)) { throw "PDF panduan gagal dibuat" }
+
+# Zip untuk dikirim: folder PencatatanKebun (exe, _internal, panduan).
+$zip = "$PSScriptRoot\dist\PencatatanKebun-$Versi.zip"
+Compress-Archive -Path "$PSScriptRoot\dist\PencatatanKebun" -DestinationPath $zip -Force
+
+Write-Host "Selesai (versi $Versi):"
+Write-Host "  $PSScriptRoot\dist\PencatatanKebun\PencatatanKebun.exe"
+Write-Host "  $pdf"
+Write-Host "  $zip"

@@ -4,6 +4,7 @@ import logging
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from pencatatan_kebun.ekspor.excel import kumpulkan_data, tulis_excel
 from pencatatan_kebun.services.laporan import LaporanService
 from pencatatan_kebun.services.master import MasterService
 from pencatatan_kebun.services.panen import PanenService
@@ -60,7 +61,12 @@ class JendelaUtama(tk.Tk):
         self.tab = ttk.Notebook(self)
         self.tab.pack(fill="both", expand=True, padx=8, pady=8)
 
-        self.layar_dashboard = LayarDashboard(self.tab, laporan_service, periode_service)
+        def ekspor(periode, lokasi):
+            data = kumpulkan_data(master_service, stok_service, panen_service, laporan_service,
+                                  periode)
+            tulis_excel(data, lokasi)
+
+        self.layar_dashboard = LayarDashboard(self.tab, laporan_service, periode_service, ekspor)
         self.tab.add(self.layar_dashboard, text="Dashboard")
 
         self.layar_panen = LayarPanen(self.tab, panen_service, master_service, periode_service,

@@ -1,9 +1,14 @@
 """Layar Dashboard: ringkasan panen satu periode, satu tab per jenis tanaman."""
+import os
 import tkinter as tk
+from collections.abc import Callable
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 from tkinter import font as tkfont
-from tkinter import ttk
 from typing import ClassVar
 
+from pencatatan_kebun.ekspor.excel import nama_file_bawaan
+from pencatatan_kebun.models import PeriodePanen
 from pencatatan_kebun.services.laporan import LaporanService
 from pencatatan_kebun.services.periode import PeriodeService
 from pencatatan_kebun.ui.diagram import DiagramPie, warna_kategori
@@ -169,12 +174,18 @@ class LayarDashboard(ttk.Frame):
         parent: Notebook jendela utama.
         service: LaporanService.
         periode_service: PeriodeService, untuk daftar periode.
+        ekspor: Fungsi (periode, lokasi file) yang menulis laporan Excel,
+            dipanggil tombol "Ekspor ke Excel".
     """
 
-    def __init__(self, parent: tk.Widget, service: LaporanService, periode_service: PeriodeService):
+    def __init__(self, parent: tk.Widget, service: LaporanService, periode_service: PeriodeService,
+                 ekspor: Callable[[PeriodePanen, Path], None]):
         super().__init__(parent, padding=10)
         self.service = service
         self.periode_service = periode_service
+        self.ekspor = ekspor
+        dokumen = Path.home() / "Documents"
+        self._folder_ekspor = dokumen if dokumen.is_dir() else Path.home()
 
         atas = ttk.Frame(self)
         atas.pack(fill="x")
@@ -184,6 +195,8 @@ class LayarDashboard(ttk.Frame):
         self.combo_periode.bind("<<ComboboxSelected>>", lambda _e: self._muat_isi())
         self.rentang = ttk.Label(atas, foreground="#52514e")
         self.rentang.pack(side="left", padx=12)
+        self.tombol_ekspor = ttk.Button(atas, text="Ekspor ke Excel", command=self._ekspor_excel)
+        self.tombol_ekspor.pack(side="right")
 
         self.isi = ttk.Frame(self)
         self.isi.pack(fill="both", expand=True, pady=(8, 0))
@@ -209,6 +222,7 @@ class LayarDashboard(ttk.Frame):
             anak.destroy()
 
         periode = self.combo_periode.terpilih()
+        self.tombol_ekspor.state(["disabled"] if periode is None else ["!disabled"])
         if periode is None:
             self.rentang.configure(text="")
             self._pesan("Belum ada periode panen. Buka periode di tab Periode Panen.")
@@ -231,6 +245,31 @@ class LayarDashboard(ttk.Frame):
             tab.add(halaman, text=nama)
             if nama == tab_lama:
                 tab.select(halaman)
+
+    def _ekspor_excel(self) -> None:
+        """Simpan laporan periode terpilih ke file Excel, lalu tawarkan membukanya."""
+        periode = self.combo_periode.terpilih()
+        if periode is None:
+            return
+        lokasi = filedialog.asksaveasfilename(
+            parent=self, title="Simpan laporan Excel", initialdir=self._folder_ekspor,
+            initialfile=nama_file_bawaan(periode), defaultextension=".xlsx",
+            filetypes=[("File Excel", "*.xlsx")])
+        if not lokasi:
+            return
+        lokasi = Path(lokasi)
+        berhasil, _ = jalankan_aman(self, lambda: self.ekspor(periode, lokasi))
+        if not berhasil:
+            return
+        self._folder_ekspor = lokasi.parent
+        if messagebox.askyesno("Ekspor selesai",
+                               f"Laporan tersimpan di:\n{lokasi}\n\nBuka file sekarang?",
+                               parent=self):
+            try:
+                os.startfile(lokasi)
+            except OSError:
+                messagebox.showerror("Gagal", "File tidak bisa dibuka. Pastikan Excel atau "
+                                     "aplikasi lembar kerja lain sudah terpasang.", parent=self)
 
     def _pesan(self, teks: str) -> None:
         ttk.Label(self.isi, text=teks, style="Judul.TLabel", foreground="#52514e").pack(

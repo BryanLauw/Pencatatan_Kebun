@@ -36,7 +36,7 @@ def id_varietas(varietas: Varietas) -> str:
 
 class SubTabJenis(PanelCrud):
     nama_data = "jenis"
-    kolom = [("Jenis", 200), ("Deskripsi", 350)]
+    kolom = (("Jenis", 200), ("Deskripsi", 350))
 
     def buat_form(self, frame):
         self.entry_nama = baris_isian(frame, 0, "Nama jenis", ttk.Entry(frame, width=30))
@@ -78,7 +78,7 @@ class SubTabJenis(PanelCrud):
 
 class SubTabVarietas(PanelCrud):
     nama_data = "varietas"
-    kolom = [("Jenis", 150), ("Varietas", 200), ("Deskripsi", 300)]
+    kolom = (("Jenis", 150), ("Varietas", 200), ("Deskripsi", 300))
 
     def buat_filter(self, frame):
         ttk.Label(frame, text="Tampilkan jenis").pack(side="left", padx=(0, 8))
@@ -138,7 +138,7 @@ class SubTabVarietas(PanelCrud):
 
 class SubTabPohon(PanelCrud):
     nama_data = "pohon"
-    kolom = [("Jenis", 150), ("Varietas", 200), ("Nomor pohon", 120)]
+    kolom = (("Jenis", 150), ("Varietas", 200), ("Nomor pohon", 120))
 
     def buat_filter(self, frame):
         ttk.Label(frame, text="Tampilkan jenis").pack(side="left", padx=(0, 8))
@@ -226,7 +226,7 @@ class SubTabPohon(PanelCrud):
 
 class SubTabKeterangan(PanelCrud):
     nama_data = "keterangan"
-    kolom = [("Keterangan", 200), ("Deskripsi", 350)]
+    kolom = (("Keterangan", 200), ("Deskripsi", 350))
 
     def buat_form(self, frame):
         self.entry_nama = baris_isian(frame, 0, "Nama keterangan", ttk.Entry(frame, width=30))

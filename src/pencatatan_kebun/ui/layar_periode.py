@@ -32,8 +32,8 @@ class LayarPeriode(PanelCrud):
     """
 
     nama_data = "periode"
-    kolom = [("Nama periode", 200), ("Mulai", 120), ("Selesai", 120), ("Status", 100),
-             ("Deskripsi", 250)]
+    kolom = (("Nama periode", 200), ("Mulai", 120), ("Selesai", 120), ("Status", 100),
+             ("Deskripsi", 250))
 
     def __init__(self, parent: tk.Widget, service: PeriodeService,
                  saat_berubah: Callable[[], None]):

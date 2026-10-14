@@ -53,8 +53,8 @@ class DasarRepo(unittest.TestCase):
         self.repo_keterangan.create(self.baik)
 
     def buah_baru(self, **ubah):
-        data = dict(pohon=self.pohon, bobot=1.25,
-                    keterangan=self.baik, tanggal_panen="2026-01-15")
+        data = {"pohon": self.pohon, "bobot": 1.25,
+                "keterangan": self.baik, "tanggal_panen": "2026-01-15"}
         data.update(ubah)
         return Buah(**data)
 
@@ -172,8 +172,8 @@ class TestRepo(DasarRepo):
     def test_buah_ditolak_jika_induk_belum_disimpan(self):
         self.simpan_induk()
         kasus = {
-            "pohon": dict(pohon=Pohon(99, self.varietas)),
-            "keterangan": dict(keterangan=KeteranganBuah("Busuk")),
+            "pohon": {"pohon": Pohon(99, self.varietas)},
+            "keterangan": {"keterangan": KeteranganBuah("Busuk")},
         }
         for nama, ubah in kasus.items():
             with self.assertRaises(sqlite3.IntegrityError, msg=nama):
@@ -182,9 +182,9 @@ class TestRepo(DasarRepo):
     def test_buah_ditolak_jika_data_tidak_valid(self):
         self.simpan_induk()
         kasus = {
-            "bobot nol": dict(bobot=0),
-            "tanggal salah": dict(tanggal_panen="15-01-2026"),
-            "tanggal tidak ada": dict(tanggal_panen="2026-02-30"),
+            "bobot nol": {"bobot": 0},
+            "tanggal salah": {"tanggal_panen": "15-01-2026"},
+            "tanggal tidak ada": {"tanggal_panen": "2026-02-30"},
         }
         for nama, ubah in kasus.items():
             with self.assertRaises(sqlite3.IntegrityError, msg=nama):

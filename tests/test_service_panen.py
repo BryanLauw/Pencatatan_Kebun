@@ -33,8 +33,8 @@ class DasarPanen(unittest.TestCase):
         self.baik = self.master.tambah_keterangan("Baik")
 
     def catat(self, **ubah):
-        data = dict(pohon=self.pohon_7, keterangan_buah=self.baik,
-                    bobot=1.25, tanggal_panen="2025-01-15")
+        data = {"pohon": self.pohon_7, "keterangan_buah": self.baik,
+                    "bobot": 1.25, "tanggal_panen": "2025-01-15"}
         data.update(ubah)
         return self.service.catat_buah(**data)
 
@@ -82,8 +82,8 @@ class TestCatatBuah(DasarPanen):
 
     def test_data_master_tidak_ada_di_database_ditolak(self):
         kasus = {
-            "pohon": dict(pohon=Pohon(99, self.musang_king)),
-            "keterangan_buah": dict(keterangan_buah=KeteranganBuah("Busuk")),
+            "pohon": {"pohon": Pohon(99, self.musang_king)},
+            "keterangan_buah": {"keterangan_buah": KeteranganBuah("Busuk")},
         }
         for kolom, ubah in kasus.items():
             with self.subTest(kolom=kolom):

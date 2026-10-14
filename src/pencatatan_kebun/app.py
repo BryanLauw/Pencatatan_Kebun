@@ -3,7 +3,9 @@ from pathlib import Path
 
 from pencatatan_kebun.config import lokasi_db
 from pencatatan_kebun.db.koneksi import buka_koneksi
+from pencatatan_kebun.services.laporan import LaporanService
 from pencatatan_kebun.services.master import MasterService
+from pencatatan_kebun.services.panen import PanenService
 from pencatatan_kebun.services.periode import PeriodeService
 from pencatatan_kebun.services.stok import StokService
 from pencatatan_kebun.ui.jendela_utama import JendelaUtama
@@ -38,7 +40,9 @@ def jalankan(lokasi=None) -> None:
     try:
         jendela = JendelaUtama(master_service=MasterService(conn),
                                periode_service=PeriodeService(conn),
-                               stok_service=StokService(conn))
+                               stok_service=StokService(conn),
+                               panen_service=PanenService(conn),
+                               laporan_service=LaporanService(conn))
         jendela.mainloop()
     finally:
         logging.getLogger().removeHandler(handler)

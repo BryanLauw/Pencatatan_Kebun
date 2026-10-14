@@ -1,7 +1,7 @@
 """Komponen tkinter yang dipakai bersama oleh semua layar."""
 import logging
 import tkinter as tk
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from tkinter import font as tkfont
 from tkinter import messagebox, ttk
 
@@ -46,11 +46,25 @@ def atur_gaya(root: tk.Tk) -> None:
     gaya.configure("TNotebook.Tab", padding=(16, 6))
     gaya.configure("Judul.TLabel", font=(huruf.actual("family"), UKURAN_HURUF + 2, "bold"))
 
+    # Kartu putih di Dashboard (ringkasan angka dan pie).
+    keluarga = huruf.actual("family")
+    gaya.configure("Kartu.TFrame", background="#ffffff", relief="solid", borderwidth=1)
+    gaya.configure("Kartu.TLabel", background="#ffffff", foreground="#52514e")
+    gaya.configure("KartuJudul.TLabel", background="#ffffff", foreground="#0b0b0b",
+                   font=(keluarga, UKURAN_HURUF, "bold"))
+    gaya.configure("KartuAngka.TLabel", background="#ffffff", foreground="#0b0b0b",
+                   font=(keluarga, UKURAN_HURUF + 6, "bold"))
+
     gaya.configure("Salah.TEntry", fieldbackground=WARNA_SALAH)
     gaya.map("Salah.TCombobox", fieldbackground=[("readonly", WARNA_SALAH)])
 
 
 # ---- pesan dan penanganan error ----
+
+class Dibatalkan(Exception):
+    """Pengguna memilih "Tidak" di dialog konfirmasi (mis. peringatan sisa
+    buah). jalankan_aman menghentikan proses tanpa pesan error."""
+
 
 def _tandai_salah(widget: tk.Widget | None) -> None:
     """Beri warna latar merah muda pada isian yang salah, lalu fokus ke sana."""
@@ -86,7 +100,8 @@ def jalankan_aman(parent: tk.Widget, fungsi: Callable[[], object],
     """Panggil fungsi service dan tampilkan pesan jika gagal.
 
     ServiceException ditampilkan dengan e.pesan, dan isian e.kolom disorot.
-    Exception lain dianggap bug: dicatat ke log dan ditampilkan pesan umum.
+    Dibatalkan menghentikan proses tanpa pesan. Exception lain dianggap bug:
+    dicatat ke log dan ditampilkan pesan umum.
 
     Args:
         parent: Widget pemilik dialog pesan.
@@ -95,12 +110,15 @@ def jalankan_aman(parent: tk.Widget, fungsi: Callable[[], object],
             {"nama_jenis": entry_nama}.
 
     Returns:
-        (True, hasil fungsi) jika berhasil, (False, None) jika gagal.
+        (True, hasil fungsi) jika berhasil, (False, None) jika gagal atau
+        dibatalkan.
     """
     isian = isian or {}
     _hapus_tanda(isian.values())
     try:
         return True, fungsi()
+    except Dibatalkan:
+        pass
     except ServiceException as e:
         tampilkan_salah(parent, e.pesan, isian.get(e.kolom))
     except Exception:
@@ -198,6 +216,27 @@ def set_entry(entry: ttk.Entry, teks: object) -> None:
 
 # ---- tabel ----
 
+def pas_kolom(tree: ttk.Treeview, kolom: dict[str, int]) -> None:
+    """Bagi lebar tabel ke kolom-kolomnya sebanding lebar awal, setiap kali
+    ukuran tabel berubah, supaya semua kolom selalu terlihat tanpa gulir ke
+    samping.
+
+    Args:
+        tree: Treeview yang diatur.
+        kolom: Peta id kolom (termasuk "#0" untuk kolom pohon) -> lebar awal
+            dalam piksel layar 100%.
+    """
+    total = sum(kolom.values())
+    for nama, lebar in kolom.items():
+        tree.column(nama, width=skala(tree, lebar), stretch=False)
+
+    def sesuaikan(event) -> None:
+        for nama, lebar in kolom.items():
+            tree.column(nama, width=max(20, event.width * lebar // total))
+
+    tree.bind("<Configure>", sesuaikan, add="+")
+
+
 class Tabel(ttk.Frame):
     """Tabel (Treeview) dengan scrollbar yang tiap barisnya mewakili satu objek.
 
@@ -208,7 +247,7 @@ class Tabel(ttk.Frame):
         saat_pilih: Dipanggil dengan objek baris yang dipilih (atau None).
     """
 
-    def __init__(self, parent: tk.Widget, kolom: list[tuple[str, int]],
+    def __init__(self, parent: tk.Widget, kolom: Sequence[tuple[str, int]],
                  id_fn: Callable[[object], str],
                  saat_pilih: Callable[[object | None], None] | None = None, **kwargs):
         super().__init__(parent, **kwargs)
@@ -218,24 +257,16 @@ class Tabel(ttk.Frame):
 
         nama_kolom = [f"k{i}" for i in range(len(kolom))]
         self.tree = ttk.Treeview(self, columns=nama_kolom, show="headings", selectmode="browse")
-        self._lebar = [lebar for _, lebar in kolom]
-        for nama, (judul, lebar) in zip(nama_kolom, kolom):
+        for nama, (judul, _) in zip(nama_kolom, kolom):
             self.tree.heading(nama, text=judul, anchor="w")
-            self.tree.column(nama, width=skala(self, lebar), anchor="w", stretch=False)
-        self.tree.bind("<Configure>", self._sesuaikan_kolom)
+            self.tree.column(nama, anchor="w")
+        pas_kolom(self.tree, {nama: lebar for nama, (_, lebar) in zip(nama_kolom, kolom)})
         gulir = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=gulir.set)
         # Scrollbar dipasang dulu supaya tidak terdesak keluar saat ruang sempit.
         gulir.pack(side="right", fill="y")
         self.tree.pack(side="left", fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self._saat_pilih)
-
-    def _sesuaikan_kolom(self, event) -> None:
-        """Bagi lebar tabel ke semua kolom sebanding lebar awalnya, supaya
-        semua kolom selalu terlihat tanpa gulir ke samping."""
-        total = sum(self._lebar)
-        for i, lebar in enumerate(self._lebar):
-            self.tree.column(f"k{i}", width=max(20, event.width * lebar // total))
 
     def isi(self, baris: Iterable[tuple]) -> None:
         """Ganti seluruh isi tabel.
@@ -327,7 +358,7 @@ class PanelCrud(ttk.Frame):
     """
 
     nama_data = "data"          # untuk judul form, mis. "jenis"
-    kolom: list[tuple[str, int]] = []
+    kolom: tuple[tuple[str, int], ...] = ()
     pakai_tombol_baru = True    # False jika data hanya bisa dipilih dari tabel
 
     def __init__(self, parent: tk.Widget, service, saat_berubah: Callable[[], None]):

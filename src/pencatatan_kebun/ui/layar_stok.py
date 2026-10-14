@@ -1,7 +1,6 @@
 """Layar Stok Pohon: jumlah buah di tiap pohon per periode, beserta sisanya."""
 import tkinter as tk
 from dataclasses import dataclass
-from datetime import date
 from tkinter import ttk
 
 from pencatatan_kebun.models import PeriodePanen, Pohon, StokPohon
@@ -62,8 +61,8 @@ class LayarStok(PanelCrud):
 
     nama_data = "stok"
     pakai_tombol_baru = False
-    kolom = [("Jenis", 100), ("Varietas", 140), ("No.", 50), ("Jumlah buah", 125),
-             ("Tgl hitung", 120), ("Tercatat", 95), ("Sisa", 70)]
+    kolom = (("Jenis", 100), ("Varietas", 140), ("No.", 50), ("Jumlah buah", 125),
+             ("Tgl hitung", 120), ("Tercatat", 95), ("Sisa", 70))
 
     def __init__(self, parent: tk.Widget, service: StokService, master_service: MasterService,
                  periode_service: PeriodeService):
@@ -182,7 +181,7 @@ class LayarStok(PanelCrud):
         self.label_pohon = baris_isian(frame, 0, "Pohon", ttk.Label(frame, style="Judul.TLabel"))
         self.entry_jumlah = baris_isian(frame, 1, "Jumlah buah", ttk.Entry(frame, width=10))
         self.tgl_hitung = baris_isian(frame, 2, "Tanggal hitung", EntryTanggal(
-            frame, "tanggal_hitung", "Tanggal hitung", batas_akhir=date.today()))
+            frame, "tanggal_hitung", "Tanggal hitung", sampai_hari_ini=True))
         self.info = ttk.Label(frame, foreground="#555")
         self.info.grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
         ttk.Label(frame, text="Tekan Enter untuk simpan dan lanjut ke pohon berikutnya.",

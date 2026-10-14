@@ -40,8 +40,8 @@ class DasarStok(unittest.TestCase):
         self.periode = PeriodeService(self.conn).buka_periode("Raya 2025", "2025-01-01", "2025-03-31")
 
     def catat(self, **ubah):
-        data = dict(pohon=self.pohon_7, periode=self.periode, jumlah_buah=11,
-                    tanggal_hitung="2025-01-05")
+        data = {"pohon": self.pohon_7, "periode": self.periode, "jumlah_buah": 11,
+                    "tanggal_hitung": "2025-01-05"}
         data.update(ubah)
         return self.service.catat_stok(**data)
 
@@ -83,8 +83,8 @@ class TestCatatStok(DasarStok):
 
     def test_data_master_tidak_ada_di_database_ditolak(self):
         kasus = {
-            "pohon": dict(pohon=Pohon(99, self.bawor)),
-            "periode_panen": dict(periode=PeriodePanen("Lain", "2024-01-01", "2024-02-01")),
+            "pohon": {"pohon": Pohon(99, self.bawor)},
+            "periode_panen": {"periode": PeriodePanen("Lain", "2024-01-01", "2024-02-01")},
         }
         for kolom, ubah in kasus.items():
             with self.subTest(kolom=kolom):

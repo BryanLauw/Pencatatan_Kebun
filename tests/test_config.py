@@ -57,10 +57,10 @@ class TestApp(unittest.TestCase):
 
     def test_koneksi_ditutup_walau_ui_error(self):
         self.jendela.return_value.mainloop.side_effect = RuntimeError("ui rusak")
-        with tempfile.TemporaryDirectory() as folder:
-            with mock.patch("pencatatan_kebun.app.buka_koneksi") as buka:
-                with self.assertRaises(RuntimeError):
-                    jalankan(Path(folder) / "kebun.db")
+        with (tempfile.TemporaryDirectory() as folder,
+              mock.patch("pencatatan_kebun.app.buka_koneksi") as buka):
+            with self.assertRaises(RuntimeError):
+                jalankan(Path(folder) / "kebun.db")
             buka.return_value.close.assert_called_once()
 
 

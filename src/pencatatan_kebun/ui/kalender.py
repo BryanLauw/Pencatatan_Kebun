@@ -203,8 +203,11 @@ class EntryTanggal(ttk.Frame):
         boleh_kosong: Jika True, ada tombol "Kosongkan" dan get_db boleh
             mengembalikan None (mis. tanggal selesai periode).
         batas_awal: Tanggal paling awal yang boleh dipilih, atau None.
-        batas_akhir: Tanggal paling akhir yang boleh dipilih, atau None
-            (mis. date.today() untuk tanggal panen).
+        batas_akhir: Tanggal paling akhir yang boleh dipilih, atau None.
+        sampai_hari_ini: Jika True, tanggal setelah hari ini diblok (untuk
+            tanggal panen dan tanggal hitung). Hari ini dihitung ulang setiap
+            kalender dibuka, jadi tetap benar walau aplikasi dibiarkan terbuka
+            melewati tengah malam.
         saat_berubah: Dipanggil dengan tanggal baru (atau None) setiap kali
             isinya berubah, termasuk lewat set_db.
     """
@@ -212,13 +215,14 @@ class EntryTanggal(ttk.Frame):
     def __init__(self, parent: tk.Widget, kolom: str, label: str = "Tanggal",
                  hari_ini: bool = True, boleh_kosong: bool = False,
                  batas_awal: date | None = None, batas_akhir: date | None = None,
-                 saat_berubah: Callable[[date | None], None] | None = None, **kwargs):
+                 sampai_hari_ini: bool = False, saat_berubah: Callable[[date | None], None] | None = None, **kwargs):
         super().__init__(parent, **kwargs)
         self.kolom = kolom
         self.label = label
         self.boleh_kosong = boleh_kosong
         self.batas_awal = batas_awal
         self.batas_akhir = batas_akhir
+        self.sampai_hari_ini = sampai_hari_ini
         self.saat_berubah = saat_berubah
         self._tanggal: date | None = None
         self.popup: KalenderPopup | None = None
@@ -243,7 +247,7 @@ class EntryTanggal(ttk.Frame):
         self.entry.focus_set()
         if self.popup is None or not self.popup.winfo_exists():
             self.popup = KalenderPopup(self.entry, self._tanggal, self.batas_awal,
-                                       self.batas_akhir, self._set)
+                                       self._batas_akhir(), self._set)
         return "break"  # jangan buka daftar bawaan combobox
 
     def _set(self, tanggal: date | None) -> None:
@@ -252,8 +256,14 @@ class EntryTanggal(ttk.Frame):
         if self.saat_berubah is not None:
             self.saat_berubah(tanggal)
 
+    def _batas_akhir(self) -> date | None:
+        if not self.sampai_hari_ini:
+            return self.batas_akhir
+        hari_ini = date.today()
+        return min(self.batas_akhir, hari_ini) if self.batas_akhir else hari_ini
+
     def _perbarui_tombol(self) -> None:
-        bisa = boleh_dipilih(date.today(), self.batas_awal, self.batas_akhir)
+        bisa = boleh_dipilih(date.today(), self.batas_awal, self._batas_akhir())
         self.tombol_hari_ini.state(["!disabled"] if bisa else ["disabled"])
 
     def set_batas(self, batas_awal: date | None = None, batas_akhir: date | None = None) -> None:

@@ -119,9 +119,8 @@ class TestBukaPeriode(DasarPeriode):
     def test_mulai_sebelum_periode_aktif_ditolak(self):
         self.service.buka_periode("Raya 2025", "2025-06-01")
         for mulai in ("2025-06-01", "2025-05-01"):
-            with self.subTest(mulai=mulai):
-                with self.assertRaises(PeriodeBertumpukException):
-                    self.service.buka_periode("Gadu", mulai)
+            with self.subTest(mulai=mulai), self.assertRaises(PeriodeBertumpukException):
+                self.service.buka_periode("Gadu", mulai)
 
     def test_tidak_bertumpuk_boleh(self):
         self.service.buka_periode("Raya 2025", "2025-01-01", "2025-03-31")
@@ -158,9 +157,8 @@ class TestTutupPeriode(DasarPeriode):
     def test_tanggal_tidak_setelah_mulai_ditolak(self):
         periode = self.service.buka_periode("Raya", "2025-01-01")
         for selesai in ("2025-01-01", "2024-12-31"):
-            with self.subTest(selesai=selesai):
-                with self.assertRaises(TanggalTidakValidException):
-                    self.service.tutup_periode(periode.get_id_periode(), selesai)
+            with self.subTest(selesai=selesai), self.assertRaises(TanggalTidakValidException):
+                self.service.tutup_periode(periode.get_id_periode(), selesai)
 
     def test_format_tanggal_salah_ditolak(self):
         periode = self.service.buka_periode("Raya", "2025-01-01")
@@ -226,9 +224,8 @@ class TestUbahPeriode(DasarPeriode):
     def test_nama_kosong_ditolak(self):
         periode = self.service.buka_periode("Raya", "2025-01-01")
         for nama in ("", "   ", None):
-            with self.subTest(nama=nama):
-                with self.assertRaises(NamaKosongException):
-                    self.service.ubah_periode(periode.get_id_periode(), nama, "2025-01-01", None)
+            with self.subTest(nama=nama), self.assertRaises(NamaKosongException):
+                self.service.ubah_periode(periode.get_id_periode(), nama, "2025-01-01", None)
 
     def test_id_tidak_ada_ditolak(self):
         with self.assertRaises(DataTidakDitemukanException) as cm:
@@ -293,9 +290,8 @@ class TestBacaPeriode(DasarPeriode):
 
     def test_periode_pada_tanggal_tidak_valid_ditolak(self):
         for tanggal in ("2025-02-30", hari_ini_plus(1)):
-            with self.subTest(tanggal=tanggal):
-                with self.assertRaises(TanggalTidakValidException):
-                    self.service.periode_pada_tanggal(tanggal)
+            with self.subTest(tanggal=tanggal), self.assertRaises(TanggalTidakValidException):
+                self.service.periode_pada_tanggal(tanggal)
 
     def test_daftar_urut_tanggal_mulai(self):
         self.service.buka_periode("B", "2025-04-01", "2025-06-30")

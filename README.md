@@ -28,7 +28,8 @@ jika angka dasarnya diubah.
 - Windows 10/11.
 - Python 3.13 atau lebih baru dari [python.org](https://www.python.org/), dengan pilihan
   **"tcl/tk and IDLE"** tercentang saat instalasi (untuk tkinter).
-- Library dari luar: hanya `openpyxl` (lihat `requirements.txt`).
+- Library dari luar: hanya `openpyxl` (lihat `requirements.txt`); untuk membuat .exe
+  juga PyInstaller (`requirements-dev.txt`).
 
 ## Menyiapkan
 
@@ -127,7 +128,58 @@ ref/                    contoh Excel lama dari pemilik kebun
 Alur data: **ui -> services -> repo -> SQLite**. Layar tidak mengakses database
 langsung; service menerima objek model (dipilih dari dropdown), bukan nama.
 
+## Membuat .exe
+
+Supaya aplikasi bisa dipakai di komputer tanpa Python, dibuat folder berisi
+`PencatatanKebun.exe` dengan [PyInstaller](https://pyinstaller.org/):
+
+```powershell
+.venv\Scripts\python -m pip install -r requirements-dev.txt   # sekali saja
+powershell -ExecutionPolicy Bypass -File buat_exe.ps1
+```
+
+Hasilnya folder `dist\PencatatanKebun\` (sekitar 29 MB): `PencatatanKebun.exe` dan
+folder `_internal\` berisi Python, tkinter, openpyxl, dan `skema.sql`. Exe tidak bisa
+dijalankan tanpa `_internal\` di sebelahnya. Folder `build\` dan `dist\` tidak masuk git.
+
+Nomor versi ada di `$Versi` di bagian atas `buat_exe.ps1`; naikkan setiap kali exe baru
+dibagikan. Versi, nama produk, dan pembuat tampil di klik kanan exe -> **Properties ->
+Details**.
+
+Dipakai satu folder (`--onedir`), bukan satu file (`--onefile`): exe satu file membongkar
+dirinya ke folder sementara setiap dibuka, sehingga lebih lambat dan lebih sering
+dicurigai antivirus.
+
+### Memasang di komputer pemilik kebun
+
+1. Salin seluruh folder `dist\PencatatanKebun\` lewat **flashdisk**, mis. ke
+   `C:\PencatatanKebun\`. Hindari mengirim lewat unduhan (browser, email, WhatsApp,
+   Google Drive): file unduhan ditandai "dari internet" sehingga diperiksa SmartScreen.
+2. Klik kanan `PencatatanKebun.exe` -> **Kirim ke -> Desktop (buat pintasan)**.
+3. Data tetap di `%APPDATA%\PencatatanKebun\`, terpisah dari exe. Mengganti folder
+   aplikasi dengan versi baru tidak menghapus data.
+
+### Jika Windows memblokir exe
+
+Exe tidak bertanda tangan digital, jadi Windows bisa mencurigainya:
+
+- **SmartScreen** ("Windows melindungi PC Anda"): pilih **Info selengkapnya -> Tetap
+  jalankan**. Atau sebelum dibuka: klik kanan exe -> Properties -> centang **Unblock**.
+- **Antivirus / Windows Defender** menganggap exe berbahaya: laporkan sebagai salah
+  deteksi di <https://www.microsoft.com/en-us/wdsi/filesubmission>, atau tambahkan folder
+  aplikasi ke Windows Security -> Virus & threat protection -> Exclusions.
+- **Smart App Control** ("An Application Control policy has blocked this file", atau
+  pesan bahwa Smart App Control memblokir aplikasi): fitur Windows 11 yang memblokir
+  aplikasi tak bertanda tangan yang belum dikenal Microsoft. Keputusannya dari layanan
+  cloud Microsoft per file dan tidak menentu: saat diuji, exe yang sama kadang diblokir
+  lalu dibolehkan, dan setiap build baru bisa diblokir lagi. Smart App Control tidak punya
+  pengecualian per aplikasi. Pilihannya: matikan Smart App Control (Windows Security ->
+  App & browser control -> Smart App Control), atau tanda tangani exe dengan sertifikat
+  code signing yang dipercaya Windows (berbayar). Cek dulu di komputer pemilik kebun;
+  Smart App Control hanya aktif di sebagian komputer Windows 11.
+
+Exe hanya berjalan di Windows 64-bit (sama dengan Python yang dipakai untuk build).
+
 ## Rencana berikutnya
 
-- Paket `.exe` (PyInstaller) supaya bisa dijalankan tanpa memasang Python.
 - Migrasi skema database, begitu aplikasi dipakai dengan data asli.

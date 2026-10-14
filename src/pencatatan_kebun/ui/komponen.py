@@ -5,7 +5,10 @@ from collections.abc import Callable, Iterable
 from tkinter import font as tkfont
 from tkinter import messagebox, ttk
 
-from pencatatan_kebun.services.exception import InputTidakValidException, ServiceException
+from pencatatan_kebun.services.exception import (
+    InputTidakValidException,
+    ServiceException,
+)
 from pencatatan_kebun.ui.format import kalimat
 
 log = logging.getLogger(__name__)
@@ -14,6 +17,12 @@ UKURAN_HURUF = 12
 WARNA_SALAH = "#ffd6d6"
 PESAN_BUG = ("Terjadi kesalahan tak terduga. Silakan coba lagi.\n"
              "Jika terus terjadi, beri tahu pembuat aplikasi.")
+
+
+def skala(widget: tk.Widget, piksel: int) -> int:
+    """Ubah ukuran piksel untuk layar 100% menjadi piksel layar sebenarnya
+    (mis. 380 -> 570 pada skala tampilan Windows 150%)."""
+    return int(piksel * widget.winfo_fpixels("1i") / 96)
 
 
 def atur_gaya(root: tk.Tk) -> None:
@@ -209,14 +218,24 @@ class Tabel(ttk.Frame):
 
         nama_kolom = [f"k{i}" for i in range(len(kolom))]
         self.tree = ttk.Treeview(self, columns=nama_kolom, show="headings", selectmode="browse")
+        self._lebar = [lebar for _, lebar in kolom]
         for nama, (judul, lebar) in zip(nama_kolom, kolom):
             self.tree.heading(nama, text=judul, anchor="w")
-            self.tree.column(nama, width=lebar, anchor="w")
+            self.tree.column(nama, width=skala(self, lebar), anchor="w", stretch=False)
+        self.tree.bind("<Configure>", self._sesuaikan_kolom)
         gulir = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=gulir.set)
-        self.tree.pack(side="left", fill="both", expand=True)
+        # Scrollbar dipasang dulu supaya tidak terdesak keluar saat ruang sempit.
         gulir.pack(side="right", fill="y")
+        self.tree.pack(side="left", fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self._saat_pilih)
+
+    def _sesuaikan_kolom(self, event) -> None:
+        """Bagi lebar tabel ke semua kolom sebanding lebar awalnya, supaya
+        semua kolom selalu terlihat tanpa gulir ke samping."""
+        total = sum(self._lebar)
+        for i, lebar in enumerate(self._lebar):
+            self.tree.column(f"k{i}", width=max(20, event.width * lebar // total))
 
     def isi(self, baris: Iterable[tuple]) -> None:
         """Ganti seluruh isi tabel.
@@ -231,6 +250,10 @@ class Tabel(ttk.Frame):
             iid = self.id_fn(objek)
             self._objek[iid] = objek
             self.tree.insert("", "end", iid=iid, values=nilai, tags=tag[0] if tag else ())
+
+    def semua(self) -> list[object]:
+        """Objek semua baris, urut seperti di tabel."""
+        return list(self._objek.values())
 
     def terpilih(self) -> object | None:
         pilihan = self.tree.selection()
@@ -305,6 +328,7 @@ class PanelCrud(ttk.Frame):
 
     nama_data = "data"          # untuk judul form, mis. "jenis"
     kolom: list[tuple[str, int]] = []
+    pakai_tombol_baru = True    # False jika data hanya bisa dipilih dari tabel
 
     def __init__(self, parent: tk.Widget, service, saat_berubah: Callable[[], None]):
         super().__init__(parent, padding=10)
@@ -337,13 +361,14 @@ class PanelCrud(ttk.Frame):
 
         tombol = ttk.Frame(kanan)
         tombol.pack(anchor="w", pady=(12, 0))
-        ttk.Button(tombol, text="Baru", command=self.baru).pack(side="left")
-        ttk.Button(tombol, text="Simpan", command=self._simpan).pack(side="left", padx=6)
+        if self.pakai_tombol_baru:
+            ttk.Button(tombol, text="Baru", command=self.baru).pack(side="left", padx=(0, 6))
+        ttk.Button(tombol, text="Simpan", command=self._simpan).pack(side="left", padx=(0, 6))
         self.tombol_hapus = ttk.Button(tombol, text="Hapus", command=self._hapus)
         self.tombol_hapus.pack(side="left")
         self.buat_tombol(kanan)
 
-        self.status = ttk.Label(kanan, foreground="#1a7f37", wraplength=380)
+        self.status = ttk.Label(kanan, foreground="#1a7f37", wraplength=skala(self, 380))
         self.status.pack(anchor="w", pady=(12, 0))
 
         self.muat_ulang()
@@ -398,6 +423,10 @@ class PanelCrud(ttk.Frame):
         """Nama untuk pesan, mis. "jenis Durian"."""
         raise NotImplementedError
 
+    def teks_judul(self, objek) -> str:
+        """Judul di atas form untuk mode tambah (objek None) atau ubah."""
+        return f"Tambah {self.nama_data} baru" if objek is None else f"Ubah {self.nama_data}"
+
     def saat_mode(self, objek) -> None:
         """Setelah mode berganti (objek None = tambah). Bawaan: tidak ada."""
 
@@ -406,6 +435,15 @@ class PanelCrud(ttk.Frame):
         kosongkan form jika baris baru tersembunyi oleh filter."""
         if not self.tabel.pilih_id(self.id_objek(objek)):
             self.baru()
+
+    def setelah_ubah(self, objek) -> None:
+        """Setelah ubah berhasil dan tabel dimuat ulang. Bawaan: tidak ada
+        (baris yang sama tetap terpilih)."""
+
+    def setelah_hapus(self, objek) -> None:
+        """Setelah hapus berhasil, sebelum tabel dimuat ulang. Bawaan: form
+        dikosongkan untuk tambah data baru."""
+        self.baru()
 
     # ---- alur bersama ----
 
@@ -433,12 +471,8 @@ class PanelCrud(ttk.Frame):
 
     def _atur_mode(self, objek) -> None:
         self.dipilih = objek
-        if objek is None:
-            self.judul_form.configure(text=f"Tambah {self.nama_data} baru")
-            self.tombol_hapus.state(["disabled"])
-        else:
-            self.judul_form.configure(text=f"Ubah {self.nama_data}")
-            self.tombol_hapus.state(["!disabled"])
+        self.judul_form.configure(text=self.teks_judul(objek))
+        self.tombol_hapus.state(["disabled"] if objek is None else ["!disabled"])
         self.saat_mode(objek)
 
     def _saat_pilih(self, objek) -> None:
@@ -467,6 +501,7 @@ class PanelCrud(ttk.Frame):
         else:
             self.dipilih = objek
             self.saat_berubah()
+            self.setelah_ubah(objek)
 
     def _hapus(self) -> None:
         objek = self.dipilih
@@ -475,5 +510,5 @@ class PanelCrud(ttk.Frame):
         berhasil, _ = jalankan_aman(self, lambda: self.hapus(objek), self.isian)
         if berhasil:
             self.tampilkan_status(f"{kalimat(self.nama(objek))} dihapus.")
-            self.baru()
+            self.setelah_hapus(objek)
             self.saat_berubah()

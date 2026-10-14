@@ -13,6 +13,7 @@ from pencatatan_kebun.ui.komponen import (
     baris_isian,
     jalankan_aman,
     set_entry,
+    skala,
 )
 
 
@@ -56,7 +57,7 @@ class LayarPeriode(PanelCrud):
         self.entry_deskripsi = baris_isian(frame, 3, "Deskripsi", ttk.Entry(frame, width=30))
         ttk.Label(frame, text="Kosongkan tanggal selesai jika periode masih berjalan.",
                   foreground="#555").grid(row=4, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        self.info = ttk.Label(frame, foreground="#9a6700", wraplength=380)
+        self.info = ttk.Label(frame, foreground="#9a6700", wraplength=skala(frame, 380))
         self.info.grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
         self.isian = {"nama_periode": self.entry_nama, "tanggal_mulai": self.tgl_mulai.entry,
                       "tanggal_selesai": self.tgl_selesai.entry}

@@ -5,12 +5,14 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pencatatan_kebun.cadangan import (
     CadanganGagalException,
     CadanganService,
+    CadanganTerlaluBaruException,
     CadanganTidakValidException,
     cadangan_otomatis,
     daftar_cadangan_otomatis,
@@ -19,7 +21,9 @@ from pencatatan_kebun.cadangan import (
     pulihkan_cadangan,
     simpan_cadangan,
 )
+from pencatatan_kebun.db import migrasi
 from pencatatan_kebun.db.koneksi import buka_koneksi
+from pencatatan_kebun.db.migrasi import versi_database
 from pencatatan_kebun.services.master import MasterService
 from pencatatan_kebun.services.panen import PanenService
 from pencatatan_kebun.services.periode import PeriodeService
@@ -95,6 +99,49 @@ class TestPulihkan(DasarCadangan):
             with self.subTest(sumber=sumber.name), self.assertRaises(CadanganTidakValidException):
                 pulihkan_cadangan(self.conn, sumber)
         self.assertEqual(self.nama_jenis(), ["Durian"])
+
+
+class TestPulihkanVersiSkema(DasarCadangan):
+    def setUp(self):
+        super().setUp()
+        self.cadangan = self.folder / "cadangan.db"
+        simpan_cadangan(self.conn, self.cadangan)
+        self.master.tambah_jenis("Alpukat")
+
+    def atur_versi(self, versi):
+        conn = sqlite3.connect(self.cadangan)
+        conn.execute(f"PRAGMA user_version = {versi}")
+        conn.commit()
+        conn.close()
+
+    def test_cadangan_versi_lebih_baru_ditolak(self):
+        self.atur_versi(migrasi.VERSI_SKEMA + 1)
+        with self.assertRaises(CadanganTerlaluBaruException):
+            pulihkan_cadangan(self.conn, self.cadangan)
+        self.assertEqual(self.nama_jenis(), ["Alpukat", "Durian"])
+
+    def test_cadangan_lama_dimigrasi_saat_dipulihkan(self):
+        def tambah_kolom(conn):
+            conn.execute("ALTER TABLE jenis_tanaman ADD COLUMN warna TEXT")
+        with mock.patch.object(migrasi, "VERSI_SKEMA", 2), \
+                mock.patch.dict(migrasi.MIGRASI, {2: tambah_kolom}):
+            pulihkan_cadangan(self.conn, self.cadangan)
+        self.assertEqual(versi_database(self.conn), 2)
+        self.assertIn("warna", [r[1] for r in self.conn.execute("PRAGMA table_info(jenis_tanaman)")])
+        self.assertEqual(self.nama_jenis(), ["Durian"])
+        # File cadangan sendiri tidak diubah.
+        asli = sqlite3.connect(self.cadangan)
+        self.addCleanup(asli.close)
+        self.assertEqual(versi_database(asli), 1)
+
+    def test_migrasi_cadangan_gagal_data_tidak_berubah(self):
+        def gagal(conn):
+            raise ValueError("salah")
+        with mock.patch.object(migrasi, "VERSI_SKEMA", 2), \
+                mock.patch.dict(migrasi.MIGRASI, {2: gagal}), \
+                self.assertRaises(CadanganTidakValidException):
+            pulihkan_cadangan(self.conn, self.cadangan)
+        self.assertEqual(self.nama_jenis(), ["Alpukat", "Durian"])
 
 
 class TestService(DasarCadangan):

@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -9,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pencatatan_kebun import config
 from pencatatan_kebun.app import jalankan
+from pencatatan_kebun.db.migrasi import MigrasiGagalError
 
 
 class TestConfig(unittest.TestCase):
@@ -75,6 +77,27 @@ class TestApp(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 jalankan(Path(folder) / "kebun.db")
             buka.return_value.close.assert_called_once()
+
+    def test_database_versi_baru_menampilkan_pesan_tanpa_membuka_jendela(self):
+        with (tempfile.TemporaryDirectory() as folder,
+              mock.patch("pencatatan_kebun.app._tampilkan_gagal_buka") as tampilkan):
+            lokasi = Path(folder) / "kebun.db"
+            conn = sqlite3.connect(lokasi)
+            conn.execute("PRAGMA user_version = 999")
+            conn.close()
+            jalankan(lokasi)
+        self.assertIn("versi aplikasi yang lebih baru", tampilkan.call_args.args[0])
+        self.jendela.assert_not_called()
+
+    def test_migrasi_gagal_menampilkan_pesan_dan_lokasi_log(self):
+        with (tempfile.TemporaryDirectory() as folder,
+              mock.patch("pencatatan_kebun.app.buka_koneksi",
+                         side_effect=MigrasiGagalError(2)),
+              mock.patch("pencatatan_kebun.app._tampilkan_gagal_buka") as tampilkan):
+            jalankan(Path(folder) / "kebun.db")
+            self.assertIn("kebun.log", tampilkan.call_args.args[0])
+            self.assertIn("gagal", (Path(folder) / "kebun.log").read_text(encoding="utf-8"))
+        self.jendela.assert_not_called()
 
 
 if __name__ == "__main__":

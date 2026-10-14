@@ -9,6 +9,9 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from pencatatan_kebun.db import migrasi
+from pencatatan_kebun.db.koneksi import SKEMA
+from pencatatan_kebun.db.migrasi import MigrasiGagalError, siapkan_skema, versi_database
 from pencatatan_kebun.services.exception import ServiceException
 
 log = logging.getLogger(__name__)
@@ -41,6 +44,14 @@ class CadanganTidakValidException(ServiceException):
     def __init__(self, lokasi: Path):
         super().__init__(f"File {lokasi.name} bukan cadangan Pencatatan Kebun atau sudah "
                          "rusak. Data tidak diubah.")
+
+
+class CadanganTerlaluBaruException(ServiceException):
+    """File cadangan dibuat oleh versi aplikasi yang lebih baru."""
+
+    def __init__(self, lokasi: Path):
+        super().__init__(f"File {lokasi.name} dibuat oleh versi aplikasi yang lebih baru. "
+                         "Pakai versi aplikasi terbaru untuk memulihkannya. Data tidak diubah.")
 
 
 def nama_file_bawaan(waktu: datetime | None = None) -> str:
@@ -109,33 +120,44 @@ def _cek_cadangan(sumber: Path) -> None:
             if cek.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise CadanganTidakValidException(sumber)
             tabel = {b[0] for b in cek.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            versi = versi_database(cek)
         finally:
             cek.close()
     except sqlite3.Error as e:
         raise CadanganTidakValidException(sumber) from e
     if not TABEL_WAJIB <= tabel:
         raise CadanganTidakValidException(sumber)
+    if versi > migrasi.VERSI_SKEMA:
+        raise CadanganTerlaluBaruException(sumber)
 
 
 def pulihkan_cadangan(conn: sqlite3.Connection, sumber: Path) -> None:
     """Ganti seluruh isi database dengan isi file cadangan.
 
     File dicek dulu; jika tidak valid, database tidak diubah sama sekali.
+    Cadangan dari versi skema lama dimigrasikan lebih dulu di memori (file
+    cadangan tidak diubah), baru menggantikan isi database.
     Pemanggil sebaiknya membuat cadangan otomatis lebih dulu, supaya data
     sebelum dipulihkan masih bisa dikembalikan.
 
     Raises:
-        CadanganTidakValidException: File bukan cadangan Pencatatan Kebun atau rusak.
+        CadanganTidakValidException: File bukan cadangan Pencatatan Kebun, rusak,
+            atau tidak bisa dimigrasikan.
+        CadanganTerlaluBaruException: File dibuat versi aplikasi yang lebih baru.
     """
     sumber = Path(sumber)
     _cek_cadangan(sumber)
     asal = sqlite3.connect(f"{sumber.as_uri()}?mode=ro", uri=True)
+    sementara = sqlite3.connect(":memory:")
     try:
-        asal.backup(conn)
-    except sqlite3.Error as e:
+        asal.backup(sementara)
+        siapkan_skema(sementara, SKEMA.read_text(encoding="utf-8"))
+        sementara.backup(conn)
+    except (sqlite3.Error, MigrasiGagalError) as e:
         raise CadanganTidakValidException(sumber) from e
     finally:
         asal.close()
+        sementara.close()
 
 
 def nama_file_arsip(waktu: datetime | None = None) -> str:

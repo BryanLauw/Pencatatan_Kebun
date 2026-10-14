@@ -84,8 +84,39 @@ Semua catatan ada di satu file `kebun.db`, jadi aplikasi menyediakan menu **Cada
 Cadangan dibuat dengan API backup SQLite (`src/pencatatan_kebun/cadangan.py`), aman
 walau database sedang terbuka.
 
-Selama tahap pengembangan belum ada migrasi database: jika `src/pencatatan_kebun/db/skema.sql`
-diubah, hapus `kebun.db` lama agar dibuat ulang dengan skema baru.
+Cadangan dari versi aplikasi lama bisa dipulihkan: skemanya diperbarui dulu (lihat
+bagian berikut). Cadangan dari versi aplikasi yang lebih baru ditolak.
+
+## Mengubah skema database
+
+Setelah aplikasi dipakai dengan data asli, `kebun.db` pengguna **tidak boleh dihapus**.
+Karena itu versi skema dicatat di dalam database (`PRAGMA user_version`), dan setiap
+kali aplikasi dibuka, database lama diperbarui otomatis (`src/pencatatan_kebun/db/migrasi.py`):
+
+- Database baru dibuat dari `skema.sql`, langsung versi terbaru.
+- Database versi lama: sebelum diubah, disalin dulu ke
+  `cadangan\sebelum-migrasi-v<versi>-<waktu>.db` (tidak ikut terhapus oleh batas 10
+  cadangan otomatis). Lalu migrasi dijalankan satu per satu, masing-masing dalam satu
+  transaksi dan dicek foreign key-nya; jika gagal, perubahan versi itu dibatalkan dan
+  aplikasi menampilkan pesan tanpa membuka jendela.
+- Database dari versi aplikasi yang lebih baru: ditolak dengan pesan, tidak diubah.
+
+Database yang dibuat sebelum versi skema dicatat dianggap versi 1 (skema 14-10-2026).
+
+Cara mengubah skema:
+
+1. Ubah `skema.sql` (selalu skema lengkap terbaru). Kolom baru taruh di akhir tabel,
+   sesuai hasil `ALTER TABLE ... ADD COLUMN`.
+2. Naikkan `VERSI_SKEMA` di `db/migrasi.py`.
+3. Tambahkan fungsi `MIGRASI[<versi baru>]` yang mengubah database versi sebelumnya,
+   mis. `conn.execute("ALTER TABLE pohon ADD COLUMN catatan TEXT")`. Jangan pakai
+   `executescript` dan jangan commit sendiri. Untuk mengubah CHECK atau tipe kolom,
+   buat ulang tabelnya (buat tabel baru, salin data, hapus tabel lama, ganti nama).
+4. Jalankan tes. `tests/test_migrasi.py` membuat database dari `tests/acuan/skema_v1.sql`
+   (salinan beku versi 1, jangan diubah), menjalankan semua migrasi, lalu
+   membandingkan kolom, foreign key, index, dan trigger dengan database baru dari
+   `skema.sql`; tes gagal jika ada perubahan skema tanpa migrasi. CHECK tidak ikut
+   dibandingkan, jadi perubahan CHECK perlu diuji sendiri.
 
 ## Tes
 
@@ -111,8 +142,8 @@ src/pencatatan_kebun/
   config.py             lokasi database dan format tanggal tampilan
   models.py             kelas data: JenisTanaman, Varietas, Pohon, KeteranganBuah,
                         Buah, PeriodePanen, StokPohon
-  db/                   koneksi SQLite dan skema.sql (aturan data: CHECK, UNIQUE,
-                        foreign key, trigger periode)
+  db/                   koneksi SQLite, skema.sql (aturan data: CHECK, UNIQUE,
+                        foreign key, trigger periode), dan migrasi.py (versi skema)
   repo/                 baca/tulis tabel (create/read/update/delete)
   services/             aturan bisnis dan validasi; melempar ServiceException
                         berisi pesan untuk pengguna
@@ -182,4 +213,6 @@ Exe hanya berjalan di Windows 64-bit (sama dengan Python yang dipakai untuk buil
 
 ## Rencana berikutnya
 
-- Migrasi skema database, begitu aplikasi dipakai dengan data asli.
+- Uji manual menyeluruh, lalu commit dan beri tag versi (mis. `v1.0.0`) sebelum exe
+  dikirim ke pemilik kebun.
+- Panduan singkat untuk pemilik kebun (opsional).

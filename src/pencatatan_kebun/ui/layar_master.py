@@ -287,8 +287,12 @@ class LayarMaster(ttk.Frame):
             tab.add(halaman, text=judul)
             self.sub_tab.append(halaman)
 
-    def _saat_berubah(self) -> None:
+    def muat_ulang(self) -> None:
+        """Muat ulang semua sub-tab dari database."""
         for halaman in self.sub_tab:
             halaman.muat_ulang()
+
+    def _saat_berubah(self) -> None:
+        self.muat_ulang()
         if self.saat_master_berubah is not None:
             self.saat_master_berubah()

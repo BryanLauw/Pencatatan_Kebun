@@ -55,6 +55,19 @@ class TestApp(unittest.TestCase):
             jalankan(Path(folder) / "kebun.db")
         self.jendela.return_value.mainloop.assert_called_once()
 
+    def test_cadangan_otomatis_setelah_jendela_ditutup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            jalankan(Path(folder) / "kebun.db")
+            cadangan = list((Path(folder) / "cadangan").glob("kebun-*.db"))
+            self.assertEqual(len(cadangan), 1)
+
+    def test_tanpa_cadangan_otomatis_jika_ui_error(self):
+        self.jendela.return_value.mainloop.side_effect = RuntimeError("ui rusak")
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(RuntimeError):
+                jalankan(Path(folder) / "kebun.db")
+            self.assertFalse((Path(folder) / "cadangan").exists())
+
     def test_koneksi_ditutup_walau_ui_error(self):
         self.jendela.return_value.mainloop.side_effect = RuntimeError("ui rusak")
         with (tempfile.TemporaryDirectory() as folder,

@@ -39,6 +39,7 @@ def atur_gaya(root: tk.Tk) -> None:
         tkfont.nametofont(nama).configure(size=UKURAN_HURUF)
     huruf = tkfont.nametofont("TkDefaultFont")
     root.option_add("*TCombobox*Listbox.font", huruf)
+    root.option_add("*Menu.font", huruf)
 
     gaya.configure("Treeview", rowheight=huruf.metrics("linespace") + 10)
     gaya.configure("Treeview.Heading", font=(huruf.actual("family"), UKURAN_HURUF, "bold"))

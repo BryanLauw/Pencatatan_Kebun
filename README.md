@@ -61,9 +61,22 @@ pertama kali: **Data Master** (jenis, varietas, pohon, keterangan) -> **Periode 
 |---|---|
 | Database | `%APPDATA%\PencatatanKebun\kebun.db` (mis. `C:\Users\<nama>\AppData\Roaming\PencatatanKebun\kebun.db`) |
 | Log error | `kebun.log` di folder yang sama |
+| Cadangan otomatis | folder `cadangan\` di folder yang sama, 10 terakhir (`kebun-YYYYMMDD-HHMMSS.db`) |
 
-Semua catatan ada di satu file `kebun.db`. Salin file itu (saat aplikasi ditutup)
-untuk membuat cadangan.
+## Cadangan data
+
+Semua catatan ada di satu file `kebun.db`, jadi aplikasi menyediakan menu **Cadangan**:
+
+- **Simpan cadangan...**: salin semua data ke file pilihan (mis. di flashdisk), nama
+  bawaan `Cadangan Kebun DD-MM-YYYY.db`.
+- **Pulihkan dari cadangan...**: ganti semua data dengan isi file cadangan, setelah
+  konfirmasi. File dicek dulu (harus database Pencatatan Kebun yang utuh); data
+  sebelum dipulihkan otomatis dicadangkan, jadi pemulihan yang keliru bisa dibatalkan.
+- **Buka folder cadangan otomatis**: setiap kali aplikasi ditutup, dibuat cadangan
+  otomatis; hanya 10 terbaru yang disimpan.
+
+Cadangan dibuat dengan API backup SQLite (`src/pencatatan_kebun/cadangan.py`), aman
+walau database sedang terbuka.
 
 Selama tahap pengembangan belum ada migrasi database: jika `src/pencatatan_kebun/db/skema.sql`
 diubah, hapus `kebun.db` lama agar dibuat ulang dengan skema baru.
@@ -98,6 +111,7 @@ src/pencatatan_kebun/
   services/             aturan bisnis dan validasi; melempar ServiceException
                         berisi pesan untuk pengguna
   ekspor/excel.py       ekspor laporan periode ke .xlsx
+  cadangan.py           cadangan manual/otomatis dan pemulihan database
   ui/                   tkinter: jendela_utama.py, satu layar_*.py per tab, komponen
                         bersama (komponen.py, kalender.py, diagram.py, format.py)
 tests/                  unittest per lapisan
@@ -111,4 +125,4 @@ langsung; service menerima objek model (dipilih dari dropdown), bukan nama.
 ## Rencana berikutnya
 
 - Paket `.exe` (PyInstaller) supaya bisa dijalankan tanpa memasang Python.
-- Cadangan dan pemulihan database dari dalam aplikasi.
+- Migrasi skema database, begitu aplikasi dipakai dengan data asli.

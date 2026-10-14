@@ -4,12 +4,14 @@ import logging
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from pencatatan_kebun.cadangan import CadanganService
 from pencatatan_kebun.ekspor.excel import kumpulkan_data, tulis_excel
 from pencatatan_kebun.services.laporan import LaporanService
 from pencatatan_kebun.services.master import MasterService
 from pencatatan_kebun.services.panen import PanenService
 from pencatatan_kebun.services.periode import PeriodeService
 from pencatatan_kebun.services.stok import StokService
+from pencatatan_kebun.ui.cadangan import MenuCadangan
 from pencatatan_kebun.ui.komponen import PESAN_BUG, atur_gaya
 from pencatatan_kebun.ui.layar_dashboard import LayarDashboard
 from pencatatan_kebun.ui.layar_master import LayarMaster
@@ -42,11 +44,12 @@ class JendelaUtama(tk.Tk):
         stok_service: StokService.
         panen_service: PanenService.
         laporan_service: LaporanService.
+        cadangan_service: CadanganService, untuk menu Cadangan.
     """
 
     def __init__(self, master_service: MasterService, periode_service: PeriodeService,
                  stok_service: StokService, panen_service: PanenService,
-                 laporan_service: LaporanService):
+                 laporan_service: LaporanService, cadangan_service: CadanganService):
         _aktifkan_dpi()
         super().__init__()
         self.title("Pencatatan Kebun")
@@ -57,6 +60,7 @@ class JendelaUtama(tk.Tk):
         self.geometry(f"{lebar}x{tinggi}")
         self.minsize(int(900 * skala), int(550 * skala))
         atur_gaya(self)
+        MenuCadangan(self, cadangan_service, setelah_pulihkan=self.muat_ulang_semua)
 
         self.tab = ttk.Notebook(self)
         self.tab.pack(fill="both", expand=True, padx=8, pady=8)
@@ -100,6 +104,12 @@ class JendelaUtama(tk.Tk):
         """Catatan buah berubah: tercatat/sisa di Stok dan isi Dashboard berubah."""
         self.layar_stok.muat_ulang()
         self.layar_dashboard.muat_ulang()
+
+    def muat_ulang_semua(self) -> None:
+        """Seluruh data berganti (mis. setelah dipulihkan): muat ulang semua layar."""
+        self.layar_master.muat_ulang()
+        self.layar_periode.muat_ulang()
+        self.saat_master_berubah()
 
     def report_callback_exception(self, exc, val, tb) -> None:
         """Error tak tertangkap di event tkinter: catat ke log, tampilkan pesan umum."""

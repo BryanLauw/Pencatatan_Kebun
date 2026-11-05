@@ -1,6 +1,7 @@
 """Layar Stok Pohon: jumlah buah di tiap pohon per periode, beserta sisanya."""
 import tkinter as tk
 from dataclasses import dataclass
+from tkinter import font as tkfont
 from tkinter import ttk
 
 from pencatatan_kebun.models import PeriodePanen, Pohon, StokPohon
@@ -11,11 +12,14 @@ from pencatatan_kebun.services.stok import StokService
 from pencatatan_kebun.ui.format import tanggal_ke_tampil, teks_ke_int
 from pencatatan_kebun.ui.kalender import EntryTanggal
 from pencatatan_kebun.ui.komponen import (
+    WARNA_TEKS_NOL,
+    BilahRingkasan,
+    Catatan,
     ComboObjek,
     PanelCrud,
+    baris_bebas,
     baris_isian,
     set_entry,
-    skala,
     wajib_pilih,
 )
 from pencatatan_kebun.ui.layar_master import (
@@ -61,19 +65,26 @@ class LayarStok(PanelCrud):
 
     nama_data = "stok"
     pakai_tombol_baru = False
-    kolom = (("Jenis", 100), ("Varietas", 140), ("No.", 50), ("Jumlah buah", 125),
-             ("Tgl hitung", 120), ("Tercatat", 95), ("Sisa", 70))
+    # Angka bulat dan tanggal di tengah (panjangnya mirip, enak dibaca).
+    kolom = (("Jenis", 100), ("Varietas", 140), ("No.", 50, "center"),
+             ("Jumlah buah", 125, "center"), ("Tgl hitung", 130, "center"),
+             ("Tercatat", 95, "center"), ("Sisa", 70, "center"))
+    teks_kosong = "Belum ada pohon. Daftarkan pohon di tab Data Master."
 
     def __init__(self, parent: tk.Widget, service: StokService, master_service: MasterService,
                  periode_service: PeriodeService):
         self.master_service = master_service
         self.periode_service = periode_service
         super().__init__(parent, service, self.muat_ulang)
-        self.tabel.tree.tag_configure("belum", foreground="#8a8a8a")
+        # Pohon belum dihitung: redup dan miring, sama dengan baris nol di
+        # Dashboard (kontras tetap di atas minimum 4,5:1).
+        huruf_miring = tkfont.nametofont("TkDefaultFont").copy()
+        huruf_miring.configure(slant="italic")
+        self.tabel.tree.tag_configure("belum", foreground=WARNA_TEKS_NOL, font=huruf_miring)
         self.tabel.tree.tag_configure("lebih", background="#fde2e1")
 
-        self.total = ttk.Label(self, foreground="#333")
-        self.total.grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self.total = BilahRingkasan(self)
+        self.total.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         self._perbarui_total()
 
     # ---- filter ----
@@ -148,14 +159,15 @@ class LayarStok(PanelCrud):
 
     def _perbarui_total(self):
         if self.filter_periode.terpilih() is None:
-            self.total.configure(text="Belum ada periode. Buka periode di tab Periode Panen.")
+            self.total.tampilkan("Belum ada periode. Buka periode di tab Periode Panen.")
             return
         daftar = self.tabel.semua()
         ada = [b for b in daftar if b.stok is not None]
-        self.total.configure(text=(
-            f"{len(ada)} dari {len(daftar)} pohon sudah dihitung   |   "
-            f"Jumlah buah {sum(b.stok.get_jumlah_buah() for b in ada)}   |   "
-            f"Tercatat {sum(b.tercatat for b in ada)}   |   Sisa {sum(b.sisa for b in ada)}"))
+        self.total.tampilkan([
+            ("Sudah dihitung", f"{len(ada)} dari {len(daftar)} pohon"),
+            ("Jumlah buah", sum(b.stok.get_jumlah_buah() for b in ada)),
+            ("Tercatat", sum(b.tercatat for b in ada)),
+            ("Sisa", sum(b.sisa for b in ada))])
 
     def id_objek(self, objek):
         return objek.pohon.get_id_pohon()
@@ -178,14 +190,14 @@ class LayarStok(PanelCrud):
     # ---- form ----
 
     def buat_form(self, frame):
-        self.label_pohon = baris_isian(frame, 0, "Pohon", ttk.Label(frame, style="Judul.TLabel"))
+        self.label_pohon = baris_isian(frame, 0, "Pohon", ttk.Label(frame, style="FormSorot.TLabel"))
         self.entry_jumlah = baris_isian(frame, 1, "Jumlah buah", ttk.Entry(frame, width=10))
         self.tgl_hitung = baris_isian(frame, 2, "Tanggal hitung", EntryTanggal(
-            frame, "tanggal_hitung", "Tanggal hitung", sampai_hari_ini=True))
-        self.info = ttk.Label(frame, foreground="#555")
-        self.info.grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        ttk.Label(frame, text="Tekan Enter untuk simpan dan lanjut ke pohon berikutnya.",
-                  foreground="#555", wraplength=skala(frame, 330)).grid(row=4, column=0, columnspan=2, sticky="w", pady=(6, 0))
+            frame, "tanggal_hitung", "Tanggal hitung", sampai_hari_ini=True, tautan=True))
+        self.info = Catatan(frame, "Info")
+        self.info.grid(row=baris_bebas(frame), column=0, sticky="ew", pady=(16, 0))
+        Catatan(frame, "Petunjuk", "Tekan Enter untuk simpan dan lanjut ke pohon berikutnya.").grid(
+            row=baris_bebas(frame), column=0, sticky="w", pady=(12, 0))
         self.isian = {"jumlah_buah": self.entry_jumlah, "tanggal_hitung": self.tgl_hitung.entry,
                       "periode_panen": self.filter_periode}
 
@@ -204,18 +216,18 @@ class LayarStok(PanelCrud):
         if objek.stok is None:
             # Tanggal hitung tidak di-reset, supaya mengisi banyak pohon cepat.
             set_entry(self.entry_jumlah, "")
-            self.info.configure(text="Pohon ini belum punya stok di periode ini.")
+            self.info.tampilkan("Pohon ini belum punya stok di periode ini.")
         else:
             set_entry(self.entry_jumlah, objek.stok.get_jumlah_buah())
             self.tgl_hitung.set_db(objek.stok.get_tanggal_hitung())
-            self.info.configure(text=f"Tercatat {objek.tercatat} buah, sisa {objek.sisa}.")
+            self.info.tampilkan(f"Tercatat {objek.tercatat} buah, sisa {objek.sisa}.")
         self.entry_jumlah.focus_set()
         self.entry_jumlah.select_range(0, "end")
 
     def kosongkan_form(self):
         self.label_pohon.configure(text="-")
         set_entry(self.entry_jumlah, "")
-        self.info.configure(text="")
+        self.info.tampilkan("")
 
     def simpan(self, id_lama):
         if id_lama is None:

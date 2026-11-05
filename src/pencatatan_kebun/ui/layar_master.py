@@ -138,7 +138,7 @@ class SubTabVarietas(PanelCrud):
 
 class SubTabPohon(PanelCrud):
     nama_data = "pohon"
-    kolom = (("Jenis", 150), ("Varietas", 200), ("Nomor pohon", 120))
+    kolom = (("Jenis", 150), ("Varietas", 200), ("Nomor pohon", 120, "center"))
 
     def buat_filter(self, frame):
         ttk.Label(frame, text="Tampilkan jenis").pack(side="left", padx=(0, 8))
@@ -278,8 +278,9 @@ class LayarMaster(ttk.Frame):
                  saat_master_berubah: Callable[[], None] | None = None):
         super().__init__(parent)
         self.saat_master_berubah = saat_master_berubah
-        tab = ttk.Notebook(self)
-        tab.pack(fill="both", expand=True, padx=8, pady=8)
+        # Sub-tab berbentuk pil, sama dengan tab jenis di Dashboard (tab tingkat kedua).
+        tab = ttk.Notebook(self, style="Pil.TNotebook")
+        tab.pack(fill="both", expand=True, padx=12, pady=(12, 0))
         self.sub_tab: list[PanelCrud] = []
         for judul, kelas in (("Jenis", SubTabJenis), ("Varietas", SubTabVarietas),
                              ("Pohon", SubTabPohon), ("Keterangan", SubTabKeterangan)):

@@ -15,12 +15,14 @@ from pencatatan_kebun.services.stok import StokService
 from pencatatan_kebun.ui.format import format_kg, tanggal_ke_tampil, teks_ke_bobot
 from pencatatan_kebun.ui.kalender import EntryTanggal
 from pencatatan_kebun.ui.komponen import (
+    BilahRingkasan,
+    Catatan,
     ComboObjek,
     Dibatalkan,
     PanelCrud,
+    baris_bebas,
     baris_isian,
     set_entry,
-    skala,
     wajib_pilih,
 )
 from pencatatan_kebun.ui.layar_master import (
@@ -57,8 +59,10 @@ class LayarPanen(PanelCrud):
     """
 
     nama_data = "buah"
-    kolom = (("No.", 45), ("Jenis", 110), ("Varietas", 150), ("Pohon", 70),
-             ("Keterangan", 120), ("Bobot (kg)", 100))
+    # Nomor di tengah (bukan kanan) supaya tidak menempel ke teks kolom sesudahnya.
+    kolom = (("No.", 45, "center"), ("Jenis", 110), ("Varietas", 150), ("Pohon", 70, "center"),
+             ("Keterangan", 120), ("Bobot (kg)", 100, "e"))
+    teks_kosong = "Belum ada buah tercatat pada tanggal ini."
 
     def __init__(self, parent: tk.Widget, service: PanenService, master_service: MasterService,
                  periode_service: PeriodeService, stok_service: StokService,
@@ -69,8 +73,8 @@ class LayarPanen(PanelCrud):
         self._saat_panen_berubah = saat_berubah
         super().__init__(parent, service, self._berubah)
 
-        self.total = ttk.Label(self, foreground="#333")
-        self.total.grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self.total = BilahRingkasan(self)
+        self.total.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         self._perbarui_total()
 
     def _berubah(self):
@@ -105,10 +109,12 @@ class LayarPanen(PanelCrud):
         daftar = self.tabel.semua()
         tanggal = tanggal_ke_tampil(self.tgl.get_db())
         if not daftar:
-            self.total.configure(text=f"Belum ada buah tercatat pada {tanggal}.")
+            self.total.tampilkan(f"Belum ada buah tercatat pada {tanggal}.")
             return
         bobot = sum(b.get_bobot() for b in daftar)
-        self.total.configure(text=f"{len(daftar)} buah pada {tanggal}, total {format_kg(bobot)} kg")
+        self.total.tampilkan([("Tanggal", tanggal), ("Jumlah buah", len(daftar)),
+                              ("Total bobot", f"{format_kg(bobot)} kg"),
+                              ("Rata-rata", f"{format_kg(bobot / len(daftar))} kg")])
 
     def id_objek(self, objek):
         return objek.get_id_buah()
@@ -164,12 +170,11 @@ class LayarPanen(PanelCrud):
         self.combo_varietas.bind("<<ComboboxSelected>>", lambda _e: self._isi_pohon())
         self.combo_pohon.bind("<<ComboboxSelected>>", lambda _e: self._pohon_dipilih())
 
-        self.info = ttk.Label(frame, foreground="#555", wraplength=skala(frame, 340))
-        self.info.grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        ttk.Label(frame, text="Tekan Enter untuk simpan. Pohon dan keterangan tidak "
-                              "dikosongkan, jadi buah berikutnya cukup diisi bobotnya.",
-                  foreground="#555", wraplength=skala(frame, 340)).grid(
-            row=6, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self.info = Catatan(frame, "Info")
+        self.info.grid(row=baris_bebas(frame), column=0, sticky="ew", pady=(16, 0))
+        Catatan(frame, "Petunjuk", "Tekan Enter untuk simpan. Pohon dan keterangan tidak "
+                                   "dikosongkan, jadi buah berikutnya cukup diisi bobotnya.").grid(
+            row=baris_bebas(frame), column=0, sticky="w", pady=(12, 0))
         self.isian = {"pohon": self.combo_pohon, "keterangan_buah": self.combo_keterangan,
                       "bobot": self.entry_bobot, "tanggal_panen": self.tgl.entry}
 
@@ -232,7 +237,7 @@ class LayarPanen(PanelCrud):
         if not hasattr(self, "info"):
             return
         pohon = self.combo_pohon.terpilih()
-        self.info.configure(text=self._cek_sisa(pohon, self.tgl.get_db())[0] if pohon else "")
+        self.info.tampilkan(self._cek_sisa(pohon, self.tgl.get_db())[0] if pohon else "")
 
     def _konfirmasi_sisa(self, pohon: Pohon, tanggal: str) -> None:
         """Peringatan #8: tanya dulu jika sisa habis/tidak diketahui.

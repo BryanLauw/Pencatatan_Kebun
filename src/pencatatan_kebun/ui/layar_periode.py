@@ -2,6 +2,7 @@
 import tkinter as tk
 from collections.abc import Callable
 from datetime import date
+from tkinter import font as tkfont
 from tkinter import messagebox, ttk
 
 from pencatatan_kebun.models import PeriodePanen
@@ -9,18 +10,20 @@ from pencatatan_kebun.services.periode import PeriodeService
 from pencatatan_kebun.ui.format import kalimat, tanggal_ke_tampil
 from pencatatan_kebun.ui.kalender import EntryTanggal, sehari_setelah
 from pencatatan_kebun.ui.komponen import (
+    WARNA_HIJAU_TUA,
+    Catatan,
     PanelCrud,
+    baris_bebas,
     baris_isian,
     jalankan_aman,
     set_entry,
-    skala,
 )
 
 
 class LayarPeriode(PanelCrud):
     """Tab Periode Panen.
 
-    Periode aktif (tanggal selesai kosong) diberi warna hijau. Membuka periode
+    Periode aktif (tanggal selesai kosong) ditulis hijau tebal. Membuka periode
     baru otomatis menutup periode aktif sehari sebelum tanggal mulai periode
     baru (diatur trigger di skema).
 
@@ -32,15 +35,21 @@ class LayarPeriode(PanelCrud):
     """
 
     nama_data = "periode"
-    kolom = (("Nama periode", 200), ("Mulai", 120), ("Selesai", 120), ("Status", 100),
-             ("Deskripsi", 250))
+    # Kolom tanggal cukup lebar untuk "dd-mm-yyyy" walau tabel sempit.
+    kolom = (("Nama periode", 190), ("Mulai", 135), ("Selesai", 135), ("Status", 100),
+             ("Deskripsi", 220))
+    teks_kosong = "Belum ada periode panen. Buka periode pertama lewat form di kanan."
 
     def __init__(self, parent: tk.Widget, service: PeriodeService,
                  saat_berubah: Callable[[], None]):
         self._aktif_sebelum_tambah: PeriodePanen | None = None
         self._saat_periode_berubah = saat_berubah
         super().__init__(parent, service, self._berubah)
-        self.tabel.tree.tag_configure("aktif", background="#dff3dc")
+        # Teks hijau tebal, bukan latar hijau: latar hijau muda tidak bisa
+        # dibedakan dari warna baris terpilih.
+        huruf_tebal = tkfont.nametofont("TkDefaultFont").copy()
+        huruf_tebal.configure(weight="bold")
+        self.tabel.tree.tag_configure("aktif", foreground=WARNA_HIJAU_TUA, font=huruf_tebal)
 
     def _berubah(self):
         self.muat_ulang()
@@ -50,21 +59,22 @@ class LayarPeriode(PanelCrud):
         self.entry_nama = baris_isian(frame, 0, "Nama periode", ttk.Entry(frame, width=30))
         # Tanggal selesai harus setelah tanggal mulai: tanggal sebelumnya diblok.
         self.tgl_mulai = baris_isian(frame, 1, "Tanggal mulai", EntryTanggal(
-            frame, "tanggal_mulai", "Tanggal mulai", hari_ini=False,
+            frame, "tanggal_mulai", "Tanggal mulai", hari_ini=False, tautan=True,
             saat_berubah=lambda t: self.tgl_selesai.set_batas(batas_awal=sehari_setelah(t))))
         self.tgl_selesai = baris_isian(frame, 2, "Tanggal selesai", EntryTanggal(
-            frame, "tanggal_selesai", "Tanggal selesai", hari_ini=False, boleh_kosong=True))
+            frame, "tanggal_selesai", "Tanggal selesai", hari_ini=False, boleh_kosong=True,
+            tautan=True))
         self.entry_deskripsi = baris_isian(frame, 3, "Deskripsi", ttk.Entry(frame, width=30))
-        ttk.Label(frame, text="Kosongkan tanggal selesai jika periode masih berjalan.",
-                  foreground="#555").grid(row=4, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        self.info = ttk.Label(frame, foreground="#9a6700", wraplength=skala(frame, 380))
-        self.info.grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        Catatan(frame, "Petunjuk", "Kosongkan tanggal selesai jika periode masih berjalan.").grid(
+            row=baris_bebas(frame), column=0, sticky="w", pady=(12, 0))
+        self.info = Catatan(frame, "Peringatan")
+        self.info.grid(row=baris_bebas(frame), column=0, sticky="ew", pady=(16, 0))
         self.isian = {"nama_periode": self.entry_nama, "tanggal_mulai": self.tgl_mulai.entry,
                       "tanggal_selesai": self.tgl_selesai.entry}
 
     def buat_tombol(self, frame):
+        # Dipasang oleh saat_mode, hanya saat periode aktif sedang dipilih.
         self.tombol_tutup = ttk.Button(frame, text="Tutup periode", command=self._tutup)
-        self.tombol_tutup.pack(anchor="w", pady=(6, 0))
 
     def data(self):
         # Periode terbaru di atas.
@@ -104,14 +114,19 @@ class LayarPeriode(PanelCrud):
 
     def saat_mode(self, objek):
         aktif = objek is not None and objek.get_tanggal_selesai() is None
-        self.tombol_tutup.state(["!disabled"] if aktif else ["disabled"])
+        if aktif:
+            # Tepat di bawah bilah aksi (pesan status bisa sedang
+            # tersembunyi, jadi tidak bisa dijadikan patokan).
+            self.tombol_tutup.pack(anchor="w", pady=(10, 0), after=self.tombol_simpan.master)
+        else:
+            self.tombol_tutup.pack_forget()
         teks = ""
         if objek is None:
             lama = self.service.periode_aktif()
             if lama is not None:
                 teks = (f"Periode aktif \"{lama.get_nama()}\" akan otomatis ditutup sehari "
                         "sebelum tanggal mulai periode baru.")
-        self.info.configure(text=teks)
+        self.info.tampilkan(teks)
 
     def simpan(self, id_lama):
         nama = self.entry_nama.get()

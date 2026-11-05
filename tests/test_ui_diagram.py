@@ -7,9 +7,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from pencatatan_kebun.ui.diagram import (
     LABEL_LAINNYA,
     PALET,
+    WARNA_BAIK,
+    WARNA_GUGUR,
     WARNA_LAINNYA,
+    WARNA_RUSAK,
     kelompokkan,
     warna_kategori,
+    warna_keterangan,
 )
 
 
@@ -35,6 +39,22 @@ class TestWarnaKategori(unittest.TestCase):
     def test_kategori_setelah_palet_habis_abu_abu(self):
         warna = warna_kategori([f"K{i}" for i in range(len(PALET) + 1)])
         self.assertEqual(warna[f"K{len(PALET)}"], WARNA_LAINNYA)
+
+
+class TestWarnaKeterangan(unittest.TestCase):
+    def test_nama_bermakna_pakai_warna_makna(self):
+        warna = warna_keterangan(["Baik", "Gugur", "Rusak"])
+        self.assertEqual(warna, {"Baik": WARNA_BAIK, "Gugur": WARNA_GUGUR, "Rusak": WARNA_RUSAK})
+
+    def test_huruf_besar_kecil_dan_spasi_diabaikan(self):
+        self.assertEqual(warna_keterangan([" BUSUK "])[" BUSUK "], WARNA_RUSAK)
+
+    def test_nama_lain_pakai_palet_berurutan(self):
+        warna = warna_keterangan(["Kecil", "Baik", "Retak"])
+        self.assertEqual(warna, {"Kecil": PALET[0], "Baik": WARNA_BAIK, "Retak": PALET[1]})
+
+    def test_palet_tidak_memakai_warna_makna(self):
+        self.assertFalse({WARNA_BAIK, WARNA_GUGUR, WARNA_RUSAK} & set(PALET))
 
 
 if __name__ == "__main__":

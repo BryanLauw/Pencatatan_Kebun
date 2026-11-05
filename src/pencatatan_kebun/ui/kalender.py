@@ -17,8 +17,8 @@ NAMA_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli",
 NAMA_HARI = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
 
 WARNA_LATAR = "#ffffff"
-WARNA_TERPILIH = "#1f6feb"
-WARNA_HARI_INI = "#dbe7ff"
+WARNA_TERPILIH = "#2f7d4f"
+WARNA_HARI_INI = "#e1f0e4"
 WARNA_NONAKTIF = "#b8b8b8"
 WARNA_MINGGU = "#c62828"
 
@@ -176,7 +176,7 @@ class KalenderPopup(tk.Toplevel):
                 background=(WARNA_TERPILIH if dipilih
                             else WARNA_HARI_INI if tanggal == hari_ini else WARNA_LATAR),
                 foreground="#fff" if dipilih else warna_teks,
-                activebackground="#d6e4ff",
+                activebackground="#cfe5d4",
                 disabledforeground=WARNA_NONAKTIF,
                 font=self.huruf_tebal if tanggal == hari_ini or dipilih else self.huruf,
                 command=(lambda t=tanggal: self._pilih(t)) if aktif else "",
@@ -210,13 +210,20 @@ class EntryTanggal(ttk.Frame):
             melewati tengah malam.
         saat_berubah: Dipanggil dengan tanggal baru (atau None) setiap kali
             isinya berubah, termasuk lewat set_db.
+        tautan: Untuk isian di dalam form: isian melebar penuh (sejajar isian
+            lain), dan "Hari ini"/"Kosongkan" menjadi tautan hijau di baris
+            labelnya (dipasang baris_isian lewat pasang_tautan), bukan tombol.
+            False (bawaan) untuk baris filter: isian ringkas dengan tombol biasa.
     """
 
     def __init__(self, parent: tk.Widget, kolom: str, label: str = "Tanggal",
                  hari_ini: bool = True, boleh_kosong: bool = False,
                  batas_awal: date | None = None, batas_akhir: date | None = None,
-                 sampai_hari_ini: bool = False, saat_berubah: Callable[[date | None], None] | None = None, **kwargs):
+                 sampai_hari_ini: bool = False, saat_berubah: Callable[[date | None], None] | None = None,
+                 tautan: bool = False, **kwargs):
         super().__init__(parent, **kwargs)
+        # Dibaca baris_isian: isian ini dibentangkan selebar form.
+        self.bentang = tautan
         self.kolom = kolom
         self.label = label
         self.boleh_kosong = boleh_kosong
@@ -230,18 +237,40 @@ class EntryTanggal(ttk.Frame):
         # Combobox readonly dipakai supaya tampilannya seperti dropdown biasa;
         # daftar bawaannya diganti kalender.
         self.entry = ttk.Combobox(self, state="readonly", width=11, values=[])
-        self.entry.pack(side="left")
         self.entry.bind("<Button-1>", self._klik)
         self.entry.bind("<Down>", self._klik)
 
-        self.tombol_hari_ini = ttk.Button(self, text="Hari ini", command=self.isi_hari_ini)
-        self.tombol_hari_ini.pack(side="left", padx=(6, 0))
-        if boleh_kosong:
-            ttk.Button(self, text="Kosongkan", command=lambda: self._set(None)).pack(
-                side="left", padx=(6, 0))
+        self.tombol_hari_ini: ttk.Button | None = None
+        if tautan:
+            # Tautannya dibuat pasang_tautan() di baris label, supaya isian ini
+            # selebar isian lain di form.
+            self.entry.pack(side="left", fill="x", expand=True)
+        else:
+            self.entry.pack(side="left")
+            self.tombol_hari_ini = ttk.Button(self, text="Hari ini", command=self.isi_hari_ini)
+            self.tombol_hari_ini.pack(side="left", padx=(6, 0))
+            if boleh_kosong:
+                ttk.Button(self, text="Kosongkan", command=lambda: self._set(None)).pack(
+                    side="left", padx=(6, 0))
         self._perbarui_tombol()
         if hari_ini:
             self.isi_hari_ini()
+
+    def pasang_tautan(self, parent: tk.Widget) -> None:
+        """Buat tautan "Hari ini" (dan "Kosongkan" jika boleh kosong) di parent,
+        rata kanan; dipanggil baris_isian untuk baris label isian ini."""
+        if not self.bentang:
+            return
+        gaya = "TautanKecil.TButton"
+        # Dipasang dari kanan, jadi urutannya terbalik.
+        if self.boleh_kosong:
+            ttk.Button(parent, text="Kosongkan", style=gaya,
+                       command=lambda: self._set(None)).pack(side="right")
+            ttk.Label(parent, text="·", style="Petunjuk.TLabel").pack(side="right", padx=6)
+        self.tombol_hari_ini = ttk.Button(parent, text="Hari ini", style=gaya,
+                                          command=self.isi_hari_ini)
+        self.tombol_hari_ini.pack(side="right")
+        self._perbarui_tombol()
 
     def _klik(self, _event) -> str:
         self.entry.focus_set()
@@ -263,6 +292,8 @@ class EntryTanggal(ttk.Frame):
         return min(self.batas_akhir, hari_ini) if self.batas_akhir else hari_ini
 
     def _perbarui_tombol(self) -> None:
+        if self.tombol_hari_ini is None:  # tautan belum dipasang
+            return
         bisa = boleh_dipilih(date.today(), self.batas_awal, self._batas_akhir())
         self.tombol_hari_ini.state(["!disabled"] if bisa else ["disabled"])
 

@@ -11,9 +11,15 @@ from pencatatan_kebun.ekspor.excel import nama_file_bawaan
 from pencatatan_kebun.models import PeriodePanen
 from pencatatan_kebun.services.laporan import LaporanService
 from pencatatan_kebun.services.periode import PeriodeService
-from pencatatan_kebun.ui.diagram import DiagramPie, warna_kategori
+from pencatatan_kebun.ui.diagram import DiagramPie, warna_kategori, warna_keterangan
 from pencatatan_kebun.ui.format import format_kg, format_persen, tanggal_ke_tampil
-from pencatatan_kebun.ui.komponen import ComboObjek, jalankan_aman, pas_kolom
+from pencatatan_kebun.ui.komponen import (
+    WARNA_TEKS_NOL,
+    WARNA_TEKS_REDUP,
+    ComboObjek,
+    jalankan_aman,
+    pas_kolom,
+)
 from pencatatan_kebun.ui.layar_stok import id_periode, label_periode
 
 
@@ -25,7 +31,7 @@ class Kartu(ttk.Frame):
     """Kotak putih berisi satu angka ringkasan, mis. "Panen 120"."""
 
     def __init__(self, parent: tk.Widget, judul: str, angka: str, satuan: str = ""):
-        super().__init__(parent, style="Kartu.TFrame", padding=(14, 6))
+        super().__init__(parent, style="Kartu.TFrame", padding=(16, 10))
         ttk.Label(self, text=judul, style="Kartu.TLabel").pack(anchor="w")
         baris = ttk.Frame(self, style="Kartu.TFrame", borderwidth=0)
         baris.pack(anchor="w")
@@ -52,13 +58,15 @@ class HalamanJenis(ttk.Frame):
     JUDUL: ClassVar[dict[str, str]] = {"#0": "Varietas / keterangan", "stok": "Stok", "panen": "Panen", "persen": "Persen",
              "sisa": "Sisa", "total": "Total kg", "rata": "Rata-rata kg", "minmaks": "Min - maks kg"}
 
+    KOLOM_BULAT: ClassVar[set[str]] = {"stok", "panen", "sisa"}
+
     def __init__(self, parent: tk.Widget, nama_jenis: str, data: dict):
         super().__init__(parent, padding=10)
         self.nama_jenis = nama_jenis
         self.ringkasan = data["ringkasan"]
         self.per_varietas = data["per_varietas"]
         self.warna_varietas = warna_kategori(list(self.per_varietas))
-        self.warna_keterangan = warna_kategori(list(self.ringkasan["per_keterangan"]))
+        self.warna_keterangan = warna_keterangan(list(self.ringkasan["per_keterangan"]))
 
         self._buat_kartu()
         self._buat_pie()
@@ -75,43 +83,64 @@ class HalamanJenis(ttk.Frame):
                 ("Sisa", str(r["sisa"]), "buah"),
                 ("Total bobot", format_kg(r["total_bobot"]), "kg"),
                 ("Rata-rata", _rata(r["total_bobot"], r["jumlah_panen"]), "kg/buah")):
-            Kartu(baris, judul, angka, satuan).pack(side="left", padx=(0, 8), fill="y")
+            # expand: kelima kartu membagi lebar yang tersedia sama rata.
+            Kartu(baris, judul, angka, satuan).pack(side="left", padx=(0, 8), fill="both",
+                                                    expand=True)
 
     def _buat_pie(self):
         baris = ttk.Frame(self)
         baris.pack(fill="x", pady=(8, 0))
+        # Dua kartu pie berbagi lebar sama rata dan ikut melebar bersama jendela.
+        baris.columnconfigure((0, 1), weight=1, uniform="pie")
 
-        kiri = ttk.Frame(baris, style="Kartu.TFrame", padding=10)
-        kiri.pack(side="left", padx=(0, 8))
-        ttk.Label(kiri, text="Panen per varietas", style="KartuJudul.TLabel").pack(anchor="w")
-        pie = DiagramPie(kiri)
-        pie.pack()
-        pie.tampilkan([(n, v["jumlah_panen"]) for n, v in self.per_varietas.items()],
-                      self.warna_varietas)
+        kiri = ttk.Frame(baris, style="Kartu.TFrame", padding=12)
+        kiri.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        kanan = ttk.Frame(baris, style="Kartu.TFrame", padding=12)
+        kanan.grid(row=0, column=1, sticky="nsew")
 
-        kanan = ttk.Frame(baris, style="Kartu.TFrame", padding=10)
-        kanan.pack(side="left")
+        # Kepala kedua kartu sama tinggi (setinggi tautan di kartu kanan), supaya
+        # judulnya sejajar walau tautan disembunyikan.
+        kepala_kiri = ttk.Frame(kiri, style="Kartu.TFrame", borderwidth=0)
+        kepala_kiri.pack(fill="x")
         kepala = ttk.Frame(kanan, style="Kartu.TFrame", borderwidth=0)
         kepala.pack(fill="x")
+        kepala.columnconfigure(0, weight=1)
+        ttk.Label(kepala_kiri, text="Panen per varietas", style="KartuJudul.TLabel").grid(
+            row=0, column=0, sticky="w")
         self.judul_keterangan = ttk.Label(kepala, style="KartuJudul.TLabel")
-        self.judul_keterangan.pack(side="left")
-        self.tombol_seluruh = ttk.Button(kepala, text="Seluruh jenis",
+        self.judul_keterangan.grid(row=0, column=0, sticky="w")
+        # Tautan ringan, hanya tampil saat satu varietas dipilih di tabel.
+        self.tombol_seluruh = ttk.Button(kepala, text=f"Lihat seluruh {self.nama_jenis}",
+                                         style="Tautan.TButton",
                                          command=lambda: self.tree.selection_set(()))
-        self.tombol_seluruh.pack(side="right")
+        self.tombol_seluruh.grid(row=0, column=1, sticky="e")
+        self.tombol_seluruh.update_idletasks()
+        tinggi_kepala = self.tombol_seluruh.winfo_reqheight()
+        kepala_kiri.rowconfigure(0, minsize=tinggi_kepala)
+        kepala.rowconfigure(0, minsize=tinggi_kepala)
+
+        pie = DiagramPie(kiri)
+        pie.pack(fill="both", expand=True)
+        pie.tampilkan([(n, v["jumlah_panen"]) for n, v in self.per_varietas.items()],
+                      self.warna_varietas)
         self.pie_keterangan = DiagramPie(kanan)
-        self.pie_keterangan.pack()
+        self.pie_keterangan.pack(fill="both", expand=True)
 
     def _buat_tabel(self):
-        ttk.Label(self, foreground="#52514e", text=(
-            "Klik tanda di kiri nama untuk rincian keterangan. Persen: bagian dari panen jenis "
-            "(baris varietas) atau dari panen varietasnya (baris keterangan).")
-        ).pack(anchor="w", pady=(8, 2))
+        ttk.Label(self, foreground=WARNA_TEKS_REDUP, text=(
+            "Klik ▸ di depan nama untuk rincian per keterangan. "
+            "Persen = bagian dari induknya (jenis atau varietas).")
+        ).pack(anchor="w", pady=(10, 4))
         kotak = ttk.Frame(self)
         kotak.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(kotak, columns=[k for k in self.KOLOM if k != "#0"],
                                  selectmode="browse")
         for nama, judul in self.JUDUL.items():
-            self.tree.heading(nama, text=judul, anchor="w")
+            # Nama rata kiri; angka bulat (stok, panen, sisa) di tengah; angka
+            # desimal (persen, kg) rata kanan supaya komanya sejajar.
+            rata = "w" if nama == "#0" else "center" if nama in self.KOLOM_BULAT else "e"
+            self.tree.heading(nama, text=judul, anchor=rata)
+            self.tree.column(nama, anchor=rata)
         pas_kolom(self.tree, self.KOLOM)
         gulir = ttk.Scrollbar(kotak, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=gulir.set)
@@ -119,13 +148,20 @@ class HalamanJenis(ttk.Frame):
         self.tree.pack(side="left", fill="both", expand=True)
         huruf_tebal = tkfont.nametofont("TkDefaultFont").copy()
         huruf_tebal.configure(weight="bold")
-        self.tree.tag_configure("total", font=huruf_tebal, background="#efeee9")
-        self.tree.tag_configure("keterangan", foreground="#52514e")
+        self.tree.tag_configure("total", font=huruf_tebal, background="#eaf2e8")
+        self.tree.tag_configure("keterangan", foreground=WARNA_TEKS_REDUP)
+        # Baris tanpa panen tetap tampil, tetapi redup dan miring supaya tidak
+        # menarik perhatian. Miring yang membedakannya dari teks redup biasa,
+        # karena warnanya tidak boleh lebih pucat (kontras minimum).
+        huruf_miring = tkfont.nametofont("TkDefaultFont").copy()
+        huruf_miring.configure(slant="italic")
+        self.tree.tag_configure("nol", foreground=WARNA_TEKS_NOL, font=huruf_miring)
 
         r = self.ringkasan
         for nama, v in self.per_varietas.items():
             iid = f"v:{nama}"
-            self.tree.insert("", "end", iid=iid, text=nama, values=(
+            tag = ("nol",) if v["jumlah_panen"] == 0 else ()
+            self.tree.insert("", "end", iid=iid, text=nama, tags=tag, values=(
                 v["jumlah_stok"], v["jumlah_panen"],
                 format_persen(v["jumlah_panen"] / r["jumlah_panen"] * 100) if r["jumlah_panen"] else "-",
                 v["sisa"], format_kg(v["total_bobot"]), _rata(v["total_bobot"], v["jumlah_panen"]),
@@ -143,7 +179,8 @@ class HalamanJenis(ttk.Frame):
     def _isi_keterangan(self, induk: str, per_keterangan: dict):
         """Baris anak per keterangan, tertutup sampai pengguna membukanya."""
         for nama, k in per_keterangan.items():
-            self.tree.insert(induk, "end", iid=f"{induk}|{nama}", text=nama, tags=("keterangan",),
+            tag = "nol" if k["jumlah_buah"] == 0 else "keterangan"
+            self.tree.insert(induk, "end", iid=f"{induk}|{nama}", text=nama, tags=(tag,),
                              values=("", k["jumlah_buah"], format_persen(k["persentase"]), "",
                                      format_kg(k["total_bobot"]),
                                      _rata(k["total_bobot"], k["jumlah_buah"]), ""))
@@ -158,11 +195,11 @@ class HalamanJenis(ttk.Frame):
         if nama_varietas is None:
             data = self.ringkasan["per_keterangan"]
             self.judul_keterangan.configure(text=f"Keterangan - seluruh {self.nama_jenis}")
-            self.tombol_seluruh.state(["disabled"])
+            self.tombol_seluruh.grid_remove()
         else:
             data = self.per_varietas[nama_varietas]["per_keterangan"]
             self.judul_keterangan.configure(text=f"Keterangan - {nama_varietas}")
-            self.tombol_seluruh.state(["!disabled"])
+            self.tombol_seluruh.grid()
         self.pie_keterangan.tampilkan([(n, k["jumlah_buah"]) for n, k in data.items()],
                                       self.warna_keterangan)
 
@@ -193,13 +230,13 @@ class LayarDashboard(ttk.Frame):
         self.combo_periode = ComboObjek(atas, label_periode, id_periode, width=22)
         self.combo_periode.pack(side="left")
         self.combo_periode.bind("<<ComboboxSelected>>", lambda _e: self._muat_isi())
-        self.rentang = ttk.Label(atas, foreground="#52514e")
+        self.rentang = ttk.Label(atas, foreground=WARNA_TEKS_REDUP)
         self.rentang.pack(side="left", padx=12)
         self.tombol_ekspor = ttk.Button(atas, text="Ekspor ke Excel", command=self._ekspor_excel)
         self.tombol_ekspor.pack(side="right")
 
         self.isi = ttk.Frame(self)
-        self.isi.pack(fill="both", expand=True, pady=(8, 0))
+        self.isi.pack(fill="both", expand=True, pady=(16, 0))
         self.muat_ulang()
 
     def muat_ulang(self) -> None:
@@ -238,7 +275,7 @@ class LayarDashboard(ttk.Frame):
                         "dan catat buah di tab Catat Panen.")
             return
 
-        tab = ttk.Notebook(self.isi)
+        tab = ttk.Notebook(self.isi, style="Pil.TNotebook")
         tab.pack(fill="both", expand=True)
         for nama, data_jenis in data["per_jenis"].items():
             halaman = HalamanJenis(tab, nama, data_jenis)
@@ -272,5 +309,5 @@ class LayarDashboard(ttk.Frame):
                                      "aplikasi lembar kerja lain sudah terpasang.", parent=self)
 
     def _pesan(self, teks: str) -> None:
-        ttk.Label(self.isi, text=teks, style="Judul.TLabel", foreground="#52514e").pack(
+        ttk.Label(self.isi, text=teks, style="Judul.TLabel", foreground=WARNA_TEKS_REDUP).pack(
             anchor="w", pady=20)
